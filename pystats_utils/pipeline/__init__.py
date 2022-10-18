@@ -1,0 +1,1 @@
+from pystats_utils.pipeline.bivariant_table import BivariantTable
