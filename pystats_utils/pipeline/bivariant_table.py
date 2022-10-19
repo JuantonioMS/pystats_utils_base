@@ -52,7 +52,6 @@ class BivariantTable:
 
                 template = dict([(key, [""]) for key in header])
 
-                print(column)
                 template["Variable"] = [column]
 
                 #  Categorical section

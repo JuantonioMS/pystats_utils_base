@@ -1,4 +1,5 @@
-import panda as pd
+from sys import prefix
+import pandas as pd
 
 from pystats_utils.test import Test
 from pystats_utils.result import Result
@@ -33,7 +34,7 @@ class Multivariant(Test):
                                                 classVariable = self.classVariable,
                                                 targetVariables = self.targetVariables)
 
-        testResults = self.runTest(workingData,)
+        testResults = self.runTest(workingData, formula)
 
         return self.formatResults(**testResults)
 
@@ -45,11 +46,15 @@ class Multivariant(Test):
 
         formula = f"{classVariable} ~ " + " + ".join(targetVariables)
 
+        workingDataframe[classVariable] = pd.get_dummies(workingDataframe[classVariable],
+                                                         drop_first = True,
+                                                         prefix = classVariable)
+
         return workingDataframe, formula
 
 
     def runTest(self,
-                workingData: pd.Dataframe,
+                workingData: pd.DataFrame,
                 formula: str) -> dict:
 
         return {}
@@ -59,3 +64,6 @@ class Multivariant(Test):
 
         return Result(test = self.prettyName,
                       **testResults)
+
+from pystats_utils.test.multivariant.logistic_regression import LogisticRegression
+from pystats_utils.test.multivariant.coxph_regression import CoxPhRegression
