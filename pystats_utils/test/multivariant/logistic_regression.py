@@ -89,6 +89,10 @@ class LogisticRegression(Multivariant):
                                 "Recall" : [recall],
                                 "F1" : [f1]})
 
+        prediction = pd.Series(prediction,
+                               index = workingData.index)
+
         return {"params" : result,
                 "model" : model,
-                "summary" : summary}
+                "summary" : summary,
+                "prediction" : prediction}
