@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 
 from pystats_utils.test.normality import KolmogorovSmirnovTest
 from pystats_utils.test.homocedasticity import LeveneTest, BrownForsythTest
@@ -6,6 +7,7 @@ from pystats_utils.test.value_comparison import StudentTTest, WelchTest, MannWhi
 from pystats_utils.test.categorical_comparison import PearsonChiSquareTest
 
 from pystats_utils.data_operations import isCategorical
+from pystats_utils.data_operations import reduceDataframe
 
 
 class BivariantTable:
@@ -50,6 +52,9 @@ class BivariantTable:
 
             if column not in self.excludedVariables + [self.classVariable]:
 
+                workDataframe = reduceDataframe(self.dataframe,
+                                                self.classVariable, column)
+
                 template = dict([(key, [""]) for key in header])
 
                 template["Variable"] = [column]
@@ -57,17 +62,30 @@ class BivariantTable:
                 #  Categorical section
                 if isCategorical(self.dataframe, column):
 
-                    testResult = PearsonChiSquareTest(dataframe = self.dataframe,
+                    if len(set(workDataframe[column])) == 1:
+                        continue
+
+                    template["Variable_type"] = ["categorical"]
+
+                    testResult = PearsonChiSquareTest(dataframe = workDataframe,
                                                       classVariable = self.classVariable,
                                                       targetVariable = column).run()
 
-                    template["Variable_type"] = ["categorical"]
+                    if len(set(workDataframe[column])) == 2:
+
+                        tag = list(set(workDataframe[column]))
+                        tag.sort()
+                        tag = tag[1]
+
+                        template["Variable"] = [f"{column}_{tag}"]
 
                 #  Numerical section
                 else:
 
+                    template["Variable_type"] = ["numerical"]
+
                     #  Testear la normalidad
-                    normalityResult = KolmogorovSmirnovTest(dataframe = self.dataframe,
+                    normalityResult = KolmogorovSmirnovTest(dataframe = workDataframe,
                                                             classVariable = self.classVariable,
                                                             targetVariable = column).run()
 
@@ -76,13 +94,13 @@ class BivariantTable:
                     #  Testar la homocedasticidad
                     if not normalityResult.significance:
 
-                        homocedasticityResult = LeveneTest(dataframe = self.dataframe,
+                        homocedasticityResult = LeveneTest(dataframe = workDataframe,
                                                            classVariable = self.classVariable,
                                                            targetVariable = column).run()
 
                     else:
 
-                        homocedasticityResult = BrownForsythTest(dataframe = self.dataframe,
+                        homocedasticityResult = BrownForsythTest(dataframe = workDataframe,
                                                                  classVariable = self.classVariable,
                                                                  targetVariable = column).run()
 
@@ -94,31 +112,145 @@ class BivariantTable:
 
                         if not normalityResult.significance: #  Si las varianzas son iguales
 
-                            testResult = StudentTTest(dataframe = self.dataframe,
+                            testResult = StudentTTest(dataframe = workDataframe,
                                                       classVariable = self.classVariable,
                                                       targetVariable = column).run()
 
                         else: #  Si las varianzas no son iguales
 
-                            testResult = WelchTest(dataframe = self.dataframe,
+                            testResult = WelchTest(dataframe = workDataframe,
                                                    classVariable = self.classVariable,
                                                    targetVariable = column).run()
 
                     else: #  Si no es paramétrico
 
-                        testResult = MannWhitneyUTest(dataframe = self.dataframe,
+                        testResult = MannWhitneyUTest(dataframe = workDataframe,
                                                       classVariable = self.classVariable,
                                                       targetVariable = column).run()
 
+                    allMean = np.mean(workDataframe[column])
+                    allQ1 = np.percentile(workDataframe[column], 25)
+                    allQ3 = np.percentile(workDataframe[column], 75)
 
+                    template["All"] = [f"{round(allMean, 3)} ({round(allQ1, 3)} - {round(allQ3, 3)})"]
 
+                    for group in groups:
 
-                    template["Variable_type"] = ["numerical"]
+                        aux = workDataframe[workDataframe[self.classVariable] == group]
+
+                        groupMean = np.mean(aux[column])
+                        groupQ1 = np.percentile(aux[column], 25)
+                        groupQ3 = np.percentile(aux[column], 75)
+
+                        template[group] = [f"{round(groupMean, 3)} ({round(groupQ1, 3)} - {round(groupQ3, 3)})"]
+
                     template["Normality"] = [normality]
                     template["Homocedasticity"] = [homocedasticity]
 
-                template["P_value"] = [testResult.pvalue]
+                template["P_value"] = [round(testResult.pvalue, 3)]
                 template["Test"] = [testResult.test]
+
+                if isCategorical(self.dataframe, column):
+
+                    #  Es dicotómica
+                    if len(set(workDataframe[column])) == 2:
+
+                        auxDataseries = pd.get_dummies(workDataframe[column],
+                                                       drop_first = True)
+
+                        auxDataseries = auxDataseries[auxDataseries.columns[0]]
+
+                        allAbsolute = np.sum(auxDataseries)
+                        allRelative = round(allAbsolute / len(auxDataseries) * 100, 3)
+
+                        template["All"] = [f"{allAbsolute} ({allRelative})"]
+
+                        for group in groups:
+
+                            aux = workDataframe[workDataframe[self.classVariable] == group]
+
+                            if len(set(aux[column])) == 1:
+
+                                auxDataseries = pd.get_dummies(aux[column],
+                                                               drop_first = False)
+
+                                if auxDataseries.columns[0] == tag:
+                                    template[group] = [f"{len(auxDataseries)} (100.0)"]
+                                else:
+                                    template[group] = [f"0 (0.0)"]
+
+
+                            else:
+                                auxDataseries = pd.get_dummies(aux[column],
+                                                            drop_first = True)
+
+                                auxDataseries = auxDataseries[auxDataseries.columns[0]]
+
+                                groupAbsolute = np.sum(auxDataseries)
+                                groupRelative = round(groupAbsolute / len(auxDataseries) * 100, 3)
+
+                                template[group] = [f"{groupAbsolute} ({groupRelative})"]
+
+                    #  No es dicotómica
+                    else:
+
+                        auxDataframe = pd.get_dummies(workDataframe[column]).replace(1, "yes").replace(0, "no")
+                        auxDataframe = auxDataframe.join(workDataframe[self.classVariable])
+
+                        for column in [column for column in auxDataframe.columns if column != self.classVariable]:
+
+                            template["Variable"].append(f"----> {column}")
+                            template["Variable_type"].append("categorical")
+                            template["Normality"].append("")
+                            template["Homocedasticity"].append("")
+
+                            testResult = PearsonChiSquareTest(dataframe = auxDataframe,
+                                                              classVariable = self.classVariable,
+                                                              targetVariable = column).run()
+
+                            template["P_value"].append(round(testResult.pvalue, 3))
+                            template["Test"].append(testResult.test)
+
+                            auxWorkDataframe = reduceDataframe(auxDataframe,
+                                                               self.classVariable, column)
+
+                            if len(set(auxWorkDataframe[column])) == 1:
+
+                                if "yes" in set(auxWorkDataframe[column]):
+                                    template["All"].append(f"{len(auxWorkDataframe)} (100.0)")
+                                else:
+                                    template["All"].append(f"0 (100.0)")
+
+                                for group in groups:
+
+                                    groupAuxWorkDataframe = auxWorkDataframe[auxWorkDataframe[self.classVariable] == group]
+
+                                    if auxWorkDataframe.columns[0] == "yes":
+                                        template[group].append(f"{len(groupAuxWorkDataframe)} (100.0)")
+                                    else:
+                                        template[group].append(f"0 (100.0)")
+
+                            else:
+
+                                numAuxWorkDataframe = auxWorkDataframe.replace("yes", 1).replace("no", 0)
+
+                                allAbsolute = np.sum(numAuxWorkDataframe[column])
+
+                                allRelative = round(allAbsolute / len(numAuxWorkDataframe) * 100, 3)
+
+                                template["All"].append(f"{allAbsolute} ({allRelative})")
+
+                                for group in groups:
+
+                                    groupAuxWorkDataframe = auxWorkDataframe[auxWorkDataframe[self.classVariable] == group]
+
+                                    numGroupAuxWorkDataframe = groupAuxWorkDataframe.replace("yes", 1).replace("no", 0)
+
+                                    groupAbsolute = np.sum(numGroupAuxWorkDataframe[column])
+                                    groupRelative = round(groupAbsolute / len(numGroupAuxWorkDataframe) * 100, 3)
+
+                                    template[group].append(f"{groupAbsolute} ({groupRelative})")
+
 
                 table = pd.concat([table,
                                    pd.DataFrame(template)])
