@@ -4,6 +4,7 @@ import pandas as pd
 from pystats_utils.test import Test
 from pystats_utils.result import Result
 
+from pystats_utils.data_operations import isCategorical
 class Multivariant(Test):
 
     def __init__(self,
@@ -44,11 +45,32 @@ class Multivariant(Test):
                     classVariable: str = "",
                     targetVariables: list = []):
 
-        formula = f"{classVariable} ~ " + " + ".join(targetVariables)
-
         workingDataframe[classVariable] = pd.get_dummies(workingDataframe[classVariable],
                                                          drop_first = True,
                                                          prefix = classVariable)
+
+        for column in targetVariables:
+
+            if isCategorical(workingDataframe, column):
+
+
+
+                auxColumns = pd.get_dummies(workingDataframe[column],
+                                            drop_first = True,
+                                            prefix = column)
+
+                workingDataframe = workingDataframe.drop(columns = column)
+
+                workingDataframe = pd.concat([workingDataframe, auxColumns],
+                                             axis = 1)
+
+        aux = []
+        for column in workingDataframe:
+
+            if column != classVariable:
+                aux.append(column)
+
+        formula = f"{classVariable} ~ " + " + ".join(aux)
 
         return workingDataframe, formula
 

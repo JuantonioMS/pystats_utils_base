@@ -23,7 +23,7 @@ class LogisticRegression(Multivariant):
         classVariable = formula.split("~")[0].strip(" ")
 
         #  Model
-        model = smf.logit(formula, data = workingData).fit()
+        model = smf.logit(formula, data = workingData).fit(disp = 0)
 
         #  Result
 
