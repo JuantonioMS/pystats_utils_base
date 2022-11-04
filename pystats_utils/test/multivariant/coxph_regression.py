@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 
 from lifelines import CoxPHFitter
 
@@ -100,9 +101,25 @@ class CoxPhRegression(Multivariant):
                 duration_col = timeVariable,
                 event_col = eventVariable)
 
-        cph.print_summary()
+        resHR = cph.hazard_ratios_
+        resCIHR = np.exp(cph.confidence_intervals_)
+        resPvalues = pd.Series(cph._compute_p_values(),
+                               index = list(resHR.index),
+                               name = "P values")
+        resParams = cph.params_
+        resCI = cph.confidence_intervals_
+        resError = cph.standard_errors_
 
-        return {"model" : cph}
+        params = pd.concat([resHR, resCIHR, resPvalues,
+                            resParams, resCI, resError],
+                            axis = 1)
+
+        params = params.set_axis(["aHR", "CI 2.5%", "CI 97.5%", "P values",
+                                  "Raw Coef", "Raw CI 2.5%", "Raw CI 97.5%",
+                                  "Std Error"], axis = 1)
+
+        return {"model" : cph,
+                "params" : params}
 
 
     def formatResults(self, **testResults) -> Result:
