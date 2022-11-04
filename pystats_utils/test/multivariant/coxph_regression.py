@@ -110,11 +110,17 @@ class CoxPhRegression(Multivariant):
         resCI = cph.confidence_intervals_
         resError = cph.standard_errors_
 
-        params = pd.concat([resHR, resCIHR, resPvalues,
+        resNames = pd.Series(list(resHR.index),
+                             index = list(resHR.index),
+                             name = "Predictor")
+
+        params = pd.concat([resNames,
+                            resHR, resCIHR, resPvalues,
                             resParams, resCI, resError],
                             axis = 1)
 
-        params = params.set_axis(["aHR", "CI 2.5%", "CI 97.5%", "P values",
+        params = params.set_axis(["Predictor",
+                                  "aHR", "CI 2.5%", "CI 97.5%", "P values",
                                   "Raw Coef", "Raw CI 2.5%", "Raw CI 97.5%",
                                   "Std Error"], axis = 1)
 
