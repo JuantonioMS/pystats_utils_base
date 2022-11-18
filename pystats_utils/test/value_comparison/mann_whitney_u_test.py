@@ -11,10 +11,13 @@ class MannWhitneyUTest(ValueComparison):
         results = {}
 
         for subset1 in workingData:
+            print("................")
             for subset2 in workingData:
                 if subset1 != subset2:
 
                     statistic, pvalue = mannwhitneyu(subset1, subset2)
+
+                    print(pvalue)
 
                     try:
                         if pvalue < results["pvalue"]:
