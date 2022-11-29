@@ -8,21 +8,18 @@ from pystats_utils.test.categorical_comparison import CategoricalComparison
 class PearsonChiSquareTest(CategoricalComparison):
 
 
-    def extractData(self,
-                    workingDataframe: pd.DataFrame = pd.DataFrame(),
-                    classVariable: str = "",
-                    targetVariable: str = "") -> pd.DataFrame:
+    def cookData(self, dataframe):
 
-        return workingDataframe
+        return dataframe
 
 
-    def runTest(self, workingData: pd.DataFrame) -> dict:
+    def runTest(self, data: pd.DataFrame) -> dict:
 
         results = {}
 
-        _, workingData = crosstab(workingData[workingData.columns[0]],
-                                  workingData[workingData.columns[1]])
+        _, contigenceTab = crosstab(list(data[self.classVariable]),
+                                    list(data[self.targetVariable]))
 
-        results["statistic"], results["pvalue"], results["dof"], results["expected"] = chi2_contingency(workingData)
+        results["statistic"], results["pvalue"], results["dof"], results["expected"] = chi2_contingency(contigenceTab)
 
         return results

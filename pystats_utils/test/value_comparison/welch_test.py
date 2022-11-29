@@ -6,23 +6,26 @@ from pystats_utils.test.value_comparison import ValueComparison
 class WelchTest(ValueComparison):
 
 
-    def runTest(self, workingData: list) -> dict:
+    def runTest(self, data: dict) -> dict:
 
-        results = {}
+        results = {"pvalue"    : {},
+                   "statistic" : {}}
 
-        for subset1 in workingData:
-            for subset2 in workingData:
-                if subset1 != subset2:
+        for group1 in data:
+            for group2 in data:
 
-                    statistic, pvalue = ttest_ind(subset1,
-                                                  subset2,
+                if group1 != group2:
+
+                    title = " vs. ".join(sorted([group1, group2]))
+
+                    if title in results["pvalue"]:
+                        continue
+
+                    statistic, pvalue = ttest_ind(data[group1],
+                                                  data[group2],
                                                   equal_var = False)
 
-                    try:
-                        if pvalue < results["pvalue"]:
-                            results["statistic"], results["pvalue"] = statistic, pvalue
-
-                    except KeyError:
-                        results["statistic"], results["pvalue"] = statistic, pvalue
+                    results["pvalue"][title] = pvalue
+                    results["statistic"][title] = statistic
 
         return results

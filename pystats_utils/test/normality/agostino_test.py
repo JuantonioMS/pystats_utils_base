@@ -4,19 +4,28 @@ from pystats_utils.test.normality import Normality
 
 class AgostinoTest(Normality):
 
-    def runTest(self, workingData: list) -> dict:
 
-        results = {}
+    def runTest(self, data) -> dict:
 
-        for subset in workingData:
+        if isinstance(data, list):
 
-            statistic, pvalue = normaltest(subset)
+            results = {}
 
-            try:
-                if pvalue < results["pvalue"]:
-                    results["statistic"], results["pvalue"] = statistic, pvalue
+            aux = normaltest(data)
 
-            except KeyError:
-                results["statistic"], results["pvalue"] = statistic, pvalue
+            results["statistic"], results["pvalue"] = aux.statistic, aux.pvalue
+
+        else:
+
+            results = {"pvalue"    : {},
+                       "statistic" : {}}
+
+            for group in data:
+
+
+                aux = normaltest(data[group])
+
+
+                results["statistic"][group], results["pvalue"][group] = aux.statistic, aux.pvalue
 
         return results

@@ -6,32 +6,44 @@ from pystats_utils.test.homocedasticity import Homocedasticity
 
 class FTest(Homocedasticity):
 
-    def runTest(self, workingData: list) -> dict:
 
-        results = {}
+    def runTest(self, data: dict) -> dict:
 
-        for numeratorSubset in workingData:
-            for denominatorSubset in workingData:
-                if numeratorSubset != denominatorSubset:
+        results = {"pvalue"    : {},
+                   "statistic" : {}}
 
-                    numeratorVar = np.var(np.array(numeratorSubset), ddof = 1)
-                    denominatorVar = np.var(np.array(denominatorSubset), ddof = 1)
+        for group1 in data:
+            for group2 in data:
 
-                    if numeratorVar < denominatorVar:
-                        numeratorSubset, denominatorSubset = denominatorSubset, numeratorSubset
-                        numeratorVar, denominatorVar = denominatorVar, denominatorVar
+                if group1 != group2:
 
-                    statistic = numeratorVar / denominatorVar
+                    title = " vs. ".join(sorted([group1, group2]))
 
-                    pvalue = 2 * (1 - fDistribution.cdf(statistic,
-                                                        len(numeratorSubset) - 1,
-                                                        len(denominatorSubset) - 1))
+                    if title in results["pvalue"]:
+                        continue
 
-                    try:
-                        if pvalue < results["pvalue"]:
-                            results["statistic"], results["pvalue"] = statistic, pvalue
+                    group1Var = np.var(data[group1])
+                    group2Var = np.var(data[group2])
 
-                    except KeyError:
-                        results["statistic"], results["pvalue"] = statistic, pvalue
+                    if group1Var > group2Var:
+
+                        statistic = group1Var / group2Var
+
+                        pvalue = 2 * (1 - fDistribution.cdf(statistic,
+                                                            len(data[group1]) - 1,
+                                                            len(data[group2]) - 1))
+
+                    else:
+
+                        statistic = group2Var / group1Var
+
+                        pvalue = 2 * (1 - fDistribution.cdf(statistic,
+                                                            len(data[group2]) - 1,
+                                                            len(data[group1]) - 1))
+
+                    results["pvalue"][title] = pvalue
+                    results["statistic"][title] = statistic
 
         return results
+
+

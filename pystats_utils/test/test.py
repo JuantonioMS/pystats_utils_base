@@ -1,15 +1,19 @@
 import pandas as pd
 
 from pystats_utils.result import Result
+from pystats_utils.data_operations import  reduceDataframe
+
 
 class Test:
 
+
     alpha = 0.05
 
+
     def __init__(self,
-                 dataframe: pd.DataFrame = pd.DataFrame(),
-                 classVariable: str = "",
-                 targetVariable: str = ""):
+                 dataframe: pd.DataFrame = pd.DataFrame(), #  Dataframe con todos los datos
+                 classVariable: str = "",                  #  Grupos a comparar
+                 targetVariable: str = ""):                #  Variable a comparar
 
         self.dataframe = dataframe
 
@@ -21,99 +25,70 @@ class Test:
     def run(self) -> Result:
 
         """
-        1. Reducir los datos de trabajo
-        2. Formatear los datos para pasarlos directamente a la función de interés
-        3. Correr el test
-        4. Formatear los resultados
+        Paso 1. Eliminar variables no indicadas y quitar registros con datos faltantes
+        Paso 2. Formatear los datos ajustados para el test
+        Paso 3. Correr el test
+        Paso 4. Formatear los resultados
         """
 
-        workingDataframe = self.reduceDataframe(self.dataframe,
-                                                *[column for column in [self.classVariable,
-                                                                        self.targetVariable] if column])
+        auxDataframe = self.cleanData()
 
-        workingData = self.extractData(workingDataframe = workingDataframe,
-                                       classVariable = self.classVariable,
-                                       targetVariable = self.targetVariable)
+        auxData = self.cookData(auxDataframe)
 
-        testResults = self.runTest(workingData)
+        testResult = self.runTest(auxData)
 
-        return self.formatResults(**testResults)
+        return self.cookResult(**testResult)
 
 
-    #  ____________________Reduce Dataframe____________________
+    def cleanData(self):
 
+        columns = [self.classVariable] if self.classVariable else []
 
-    def reduceDataframe(self,
-                        dataframe: pd.DataFrame,
-                        *columns) -> pd.DataFrame:
-
-        from pystats_utils.data_operations import  reduceDataframe
-
-        return reduceDataframe(dataframe, *columns)
-
-
-    #  ____________________Extract Data____________________
-
-
-    def extractData(self,
-                    workingDataframe: pd.DataFrame = pd.DataFrame(),
-                    classVariable: str = "",
-                    targetVariable: str = "") -> list:
-
-        if self.isMonovariant:
-
-            return self.extractDataMonovariant(workingDataframe = workingDataframe,
-                                               targetVariable = targetVariable)
+        if not isinstance(self.targetVariable, str):
+            for variable in self.targetVariable: columns.append(variable)
 
         else:
+            columns.append(self.targetVariable)
 
-            return self.extractDataBivariant(workingDataframe = workingDataframe,
-                                             classVariable = classVariable,
-                                             targetVariable = targetVariable)
-
-
-    def extractDataMonovariant(self,
-                               workingDataframe: pd.DataFrame = pd.DataFrame(),
-                               targetVariable: str = "") -> list:
-
-        return [list(workingDataframe[targetVariable])]
+        return reduceDataframe(self.dataframe, *columns)
 
 
-    def extractDataBivariant(self,
-                             workingDataframe: pd.DataFrame = pd.DataFrame(),
-                             classVariable: str = "",
-                             targetVariable: str = "") -> list:
+    def cookData(self, dataframe):
 
-        data = []
+        if self.classVariable:  #  Es bivariante
 
-        classes = set(list(workingDataframe[classVariable]))
+            data = {}
 
-        for clas in classes:
+            for group in set(list(dataframe[self.classVariable])):
 
-            data.append(list(workingDataframe[workingDataframe[classVariable] == clas][targetVariable]))
+                data[group] = list(dataframe[dataframe[self.classVariable] == group][self.targetVariable])
 
-        return data
+            return data
 
+        else:  #  Es monovariante
 
-    #  ____________________Run Test____________________
+            return list(dataframe[self.targetVariable])
 
 
-    def runTest(self,
-                workingData: list) -> dict: return {}
+    def runTest(self, data):
+
+        return {}
 
 
-    #  ____________________Format Result____________________
+    def cookResult(self, **result):
 
+        fields = ["pvalue", "statistic"]
 
-    def formatResults(self,
-                      **testResults) -> Result:
+        for field in fields:
+
+            if field in result:
+
+                if not isinstance(result[field], float) and len(result[field]) < 2:
+                    result[field] = list(result[field].values())[0]
 
         return Result(test = self.prettyName,
-                      significance = testResults["pvalue"] < self.alpha,
-                      **testResults)
-
-
-    #  ____________________Getters____________________
+                      context = self.context,
+                      **result)
 
 
     @property
@@ -124,13 +99,3 @@ class Test:
     @property
     def context(self) -> str:
         return self.__class__.__base__.__name__.capitalize()
-
-
-    @property
-    def isMonovariant(self) -> bool:
-        return not bool(self.classVariable)
-
-
-    @property
-    def isBivariant(self) -> bool:
-        return not self.isMonovariant

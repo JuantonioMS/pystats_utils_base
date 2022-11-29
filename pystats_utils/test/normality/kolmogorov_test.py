@@ -5,20 +5,30 @@ from pystats_utils.test.normality import Normality
 
 class KolmogorovSmirnovTest(Normality):
 
-    def runTest(self, workingData: list) -> dict:
+
+    def runTest(self, data) -> dict:
 
         results = {}
 
-        for subset in workingData:
+        if isinstance(data, list):
 
-            result = kstest(subset, norm.cdf)
-            statistic, pvalue = result.statistic, result.pvalue
+            results = {}
 
-            try:
-                if pvalue < results["pvalue"]:
-                    results["statistic"], results["pvalue"] = statistic, pvalue
+            aux = kstest(data, norm.cdf)
 
-            except KeyError:
-                results["statistic"], results["pvalue"] = statistic, pvalue
+            results["statistic"], results["pvalue"] = aux.statistic, aux.pvalue
+
+        else:
+
+            results = {"pvalue"    : {},
+                       "statistic" : {}}
+
+            for group in data:
+
+                results[group] = {}
+
+                aux = kstest(data[group], norm.cdf)
+
+                results["statistic"][group], results["pvalue"][group] = aux.statistic, aux.pvalue
 
         return results

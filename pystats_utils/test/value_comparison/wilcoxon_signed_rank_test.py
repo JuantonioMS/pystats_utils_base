@@ -6,21 +6,25 @@ from pystats_utils.test.value_comparison import ValueComparison
 class WilocoxonSignedRankTest(ValueComparison):
 
 
-    def runTest(self, workingData: list) -> dict:
+    def runTest(self, data: dict) -> dict:
 
-        results = {}
+        results = {"pvalue"    : {},
+                   "statistic" : {}}
 
-        for subset1 in workingData:
-            for subset2 in workingData:
-                if subset1 != subset2:
+        for group1 in data:
+            for group2 in data:
 
-                    statistic, pvalue = wilcoxon(subset1, subset2)
+                if group1 != group2:
 
-                    try:
-                        if pvalue < results["pvalue"]:
-                            results["statistic"], results["pvalue"] = statistic, pvalue
+                    title = " vs. ".join(sorted([group1, group2]))
 
-                    except KeyError:
-                        results["statistic"], results["pvalue"] = statistic, pvalue
+                    if title in results["pvalue"]:
+                        continue
+
+                    statistic, pvalue = wilcoxon(data[group1],
+                                                 data[group2])
+
+                    results["pvalue"][title] = pvalue
+                    results["statistic"][title] = statistic
 
         return results

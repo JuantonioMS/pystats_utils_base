@@ -53,43 +53,28 @@ class BivariantTable:
             if column not in self.excludedVariables + [self.classVariable]:
 
                 workDataframe = reduceDataframe(self.dataframe,
-                                                self.classVariable, column)
+                                                self.classVariable,
+                                                column)
 
                 template = dict([(key, [""]) for key in header])
-
                 template["Variable"] = [column]
 
-                #  Categorical section
-                if isCategorical(self.dataframe, column):
-
-                    if len(set(workDataframe[column])) == 1:
-                        continue
-
-                    template["Variable_type"] = ["categorical"]
-
-                    testResult = PearsonChiSquareTest(dataframe = workDataframe,
-                                                      classVariable = self.classVariable,
-                                                      targetVariable = column).run()
-
-                    if len(set(workDataframe[column])) == 2:
-
-                        tag = list(set(workDataframe[column]))
-                        tag.sort()
-                        tag = tag[1]
-
-                        template["Variable"] = [f"{column}_{tag}"]
 
                 #  Numerical section
-                else:
+                if  not isCategorical(self.dataframe, column):
+
+                #  Categorical section
 
                     template["Variable_type"] = ["numerical"]
+
 
                     #  Testear la normalidad
                     normalityResult = KolmogorovSmirnovTest(dataframe = workDataframe,
                                                             classVariable = self.classVariable,
                                                             targetVariable = column).run()
 
-                    normality = "Yes" if not normalityResult.significance else "No"
+                    template["Normality"] = ["Yes" if not normalityResult.significance else "No"]
+
 
                     #  Testar la homocedasticidad
                     if not normalityResult.significance:
@@ -104,13 +89,13 @@ class BivariantTable:
                                                                  classVariable = self.classVariable,
                                                                  targetVariable = column).run()
 
-                    homocedasticity = "Yes" if not homocedasticityResult.significance else "No"
+                    template["Homocedasticity"] = ["Yes" if not homocedasticityResult.significance else "No"]
+
 
                     #  Testear la comparacion
-
                     if not normalityResult.significance: #  Si es paramétrico
 
-                        if not normalityResult.significance: #  Si las varianzas son iguales
+                        if not homocedasticityResult.significance: #  Si las varianzas son iguales
 
                             testResult = StudentTTest(dataframe = workDataframe,
                                                       classVariable = self.classVariable,
@@ -128,29 +113,40 @@ class BivariantTable:
                                                       classVariable = self.classVariable,
                                                       targetVariable = column).run()
 
-                    allMean = np.mean(workDataframe[column])
-                    allQ1 = np.percentile(workDataframe[column], 25)
-                    allQ3 = np.percentile(workDataframe[column], 75)
-
-                    template["All"] = [f"{round(allMean, 3)} ({round(allQ1, 3)} - {round(allQ3, 3)})"]
+                    template["All"] = ["{:.2f} ({:.2f} - {:.2f})".format(np.mean(workDataframe[column]),
+                                                                        np.percentile(workDataframe[column], 25),
+                                                                        np.percentile(workDataframe[column], 75))]
 
                     for group in groups:
 
                         aux = workDataframe[workDataframe[self.classVariable] == group]
 
-                        groupMean = np.mean(aux[column])
-                        groupQ1 = np.percentile(aux[column], 25)
-                        groupQ3 = np.percentile(aux[column], 75)
+                        template[group] = ["{:.2f} ({:.2f} - {:.2f})".format(np.mean(aux[column]),
+                                                                            np.percentile(aux[column], 25),
+                                                                            np.percentile(aux[column], 75))]
 
-                        template[group] = [f"{round(groupMean, 3)} ({round(groupQ1, 3)} - {round(groupQ3, 3)})"]
+                        template["P_value"] = ["{:.3f}".format(testResult.lowerPvalue)]
+                        template["Test"] = [testResult.test]
 
-                    template["Normality"] = [normality]
-                    template["Homocedasticity"] = [homocedasticity]
+                #  Categorical section
+                else:
 
-                template["P_value"] = [round(testResult.pvalue, 3)]
-                template["Test"] = [testResult.test]
+                    if len(set(workDataframe[column])) == 1:
+                        continue
 
-                if isCategorical(self.dataframe, column):
+                    template["Variable_type"] = ["categorical"]
+
+                    testResult = PearsonChiSquareTest(dataframe = workDataframe,
+                                                      classVariable = self.classVariable,
+                                                      targetVariable = column).run()
+
+                    if len(set(workDataframe[column])) == 2:
+
+                        tag = list(set(workDataframe[column]))
+                        tag.sort()
+                        tag = tag[1]
+
+                        template["Variable"] = [f"{column}_{tag}"]
 
                     #  Es dicotómica
                     if len(set(workDataframe[column])) == 2:
@@ -251,6 +247,10 @@ class BivariantTable:
 
                                     template[group].append(f"{groupAbsolute} ({groupRelative})")
 
+
+                #  Sección común
+                template["P_value"] = ["{:.3f}".format(testResult.lowerPvalue)]
+                template["Test"] = [testResult.test]
 
                 table = pd.concat([table,
                                    pd.DataFrame(template)])
