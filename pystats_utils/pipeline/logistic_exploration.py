@@ -29,6 +29,10 @@ class LogisticExploration:
 
         table = pd.DataFrame(header)
 
+
+        
+
+
         for column in self.dataframe:
 
             if column not in self.excludedVariables + [self.classVariable]:

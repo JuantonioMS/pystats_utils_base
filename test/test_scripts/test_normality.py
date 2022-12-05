@@ -1,81 +1,66 @@
 from . import similarity, testDataframe
 
 import pytest
+from pathlib import Path
+
+import rpy2.robjects as robj
+robj.r("\n".join([f"setwd('{Path(__file__).parent}')",
+                  f"df <- read.csv('../database/database_test_r.csv')"]))
+
+variables = [("num1"), ("num2"), ("num3"),
+             ("num4"), ("num5"), ("num6"),
+             ("num7"), ("num8"), ("num9")]
 
 
-@pytest.mark.parametrize(('targetVariable',                   'pvalue'),
-                         [("Body_mass_index",                 0.0),
-                          ("Health_scale",                    2.088412e-64),
-                          ("Days_bad_mental_health_pre30d",   0.0),
-                          ("Days_bad_physical_health_pre30d", 0.0),
-                          ("Age_scale",                       0.0),
-                          ("Education_level",                 0.0),
-                          ("Income_scale",                    0.0)])
-def test_agostino(targetVariable, pvalue):
 
-    from pystats_utils.test.normality import AgostinoTest
-
-    result = AgostinoTest(dataframe = testDataframe,
-                          targetVariable = targetVariable).run()
-
-    assert similarity(result.pvalue, pvalue)
-
-
-@pytest.mark.parametrize(('targetVariable',                   'pvalue1',     'pvalue2',   'pvalue3'),
-                         [("Body_mass_index",                 5.327007e-77,  0.0,         0.0),
-                          ("Health_scale",                    0.02271217,    9.36593e-66, 6.154323e-87),
-                          ("Days_bad_mental_health_pre30d",   1.120289e-159, 0.0,         0.0),
-                          ("Days_bad_physical_health_pre30d", 4.09042e-79,   0.0,         0.0),
-                          ("Age_scale",                       0.0,           0.0,         0.0),
-                          ("Education_level",                 0.0,           0.0,         0.0),
-                          ("Income_scale",                    1.404914e-09,  0.0,         0.0)])
-def test_agostinoGroups(targetVariable, pvalue1, pvalue2, pvalue3):
+@pytest.mark.parametrize(('targetVariable'),
+                         variables)
+def test_agostino(targetVariable):
 
     from pystats_utils.test.normality import AgostinoTest
 
     result = AgostinoTest(dataframe = testDataframe,
-                          classVariable = "Diabetes",
+                          classVariable = "group",
                           targetVariable = targetVariable).run()
 
-    assert similarity(result.pvalue["no"],     pvalue1, decimal = 0.05)
-    assert similarity(result.pvalue["type_1"], pvalue2, decimal = 0.05)
-    assert similarity(result.pvalue["type_2"], pvalue3, decimal = 0.05)
+    robj.r("library(fBasics)")
+    robj.r(f"pvalue1 <- dagoTest(df[df$group == 'g1',]${targetVariable})@test$p.value")
+    robj.r(f"pvalue2 <- dagoTest(df[df$group == 'g2',]${targetVariable})@test$p.value")
+    robj.r(f"pvalue3 <- dagoTest(df[df$group == 'g3',]${targetVariable})@test$p.value")
+
+    assert similarity(result.pvalue["g1"],
+                      robj.r("pvalue1")[0],
+                      decimal = 1e-10)
+    assert similarity(result.pvalue["g2"],
+                      robj.r("pvalue2")[0],
+                      decimal = 1e-10)
+    assert similarity(result.pvalue["g3"],
+                      robj.r("pvalue3")[0],
+                      decimal = 1e-10)
 
 
-@pytest.mark.parametrize(('targetVariable',                   'pvalue'),
-                         [("Body_mass_index",                 0.0),
-                          ("Health_scale",                    0.0),
-                          ("Days_bad_mental_health_pre30d",   0.0),
-                          ("Days_bad_physical_health_pre30d", 0.0),
-                          ("Age_scale",                       0.0),
-                          ("Education_level",                 0.0),
-                          ("Income_scale",                    0.0)])
-def test_kolmogorovSmirnov(targetVariable, pvalue):
 
-    from pystats_utils.test.normality import KolmogorovSmirnovTest
-
-    result = KolmogorovSmirnovTest(dataframe = testDataframe,
-                                   targetVariable = targetVariable).run()
-
-    assert similarity(result.pvalue, pvalue)
-
-
-@pytest.mark.parametrize(('targetVariable',                   'pvalue1',     'pvalue2', 'pvalue3'),
-                         [("Body_mass_index",                 2.118449e-66,  0.0,       0.0),
-                          ("Health_scale",                    2.290709e-299, 0.0,       0.0),
-                          ("Days_bad_mental_health_pre30d",   0.0,           0.0,       0.0),
-                          ("Days_bad_physical_health_pre30d", 0.0,           0.0,       0.0),
-                          ("Age_scale",                       2.93572e-114,  0.0,       0.0),
-                          ("Education_level",                 7.260656e-285, 0.0,       0.0),
-                          ("Income_scale",                    4.950622e-145, 0.0,       0.0)])
-def test_kolmogorovSmirnovGroups(targetVariable, pvalue1, pvalue2, pvalue3):
+@pytest.mark.parametrize(('targetVariable'),
+                         variables)
+def test_kolmogorovSmirnov(targetVariable):
 
     from pystats_utils.test.normality import KolmogorovSmirnovTest
 
     result = KolmogorovSmirnovTest(dataframe = testDataframe,
-                                   classVariable = "Diabetes",
+                                   classVariable = "group",
                                    targetVariable = targetVariable).run()
 
-    assert similarity(result.pvalue["no"],     pvalue1)
-    assert similarity(result.pvalue["type_1"], pvalue2)
-    assert similarity(result.pvalue["type_2"], pvalue3)
+    robj.r("library(fBasics)")
+    robj.r(f"pvalue1 <- ksnormTest(df[df$group == 'g1',]${targetVariable})@test$p.value")
+    robj.r(f"pvalue2 <- ksnormTest(df[df$group == 'g2',]${targetVariable})@test$p.value")
+    robj.r(f"pvalue3 <- ksnormTest(df[df$group == 'g3',]${targetVariable})@test$p.value")
+
+    assert similarity(result.pvalue["g1"],
+                      robj.r("pvalue1")[0],
+                      decimal = 1e-10)
+    assert similarity(result.pvalue["g2"],
+                      robj.r("pvalue2")[0],
+                      decimal = 1e-10)
+    assert similarity(result.pvalue["g3"],
+                      robj.r("pvalue3")[0],
+                      decimal = 1e-10)

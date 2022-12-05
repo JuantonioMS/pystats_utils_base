@@ -1,45 +1,175 @@
 from . import similarity, testDataframe
 
 import pytest
+from pathlib import Path
+
+import rpy2.robjects as robj
+robj.r("\n".join([f"setwd('{Path(__file__).parent}')",
+                  f"df <- read.csv('../database/database_test_r.csv')"]))
+
+variables = [("num1"), ("num2"), ("num3"),
+             ("num4"), ("num5"), ("num6"),
+             ("num7"), ("num8"), ("num9")]
 
 
-@pytest.mark.parametrize(('targetVariable',                   'pvalue'),
-                         [("Body_mass_index",                 0.02906807),
-                          ("Health_scale",                    0.5735045),
-                          ("Days_bad_mental_health_pre30d",   2.808665e-15),
-                          ("Days_bad_physical_health_pre30d", 5.74834e-11),
-                          ("Age_scale",                       0.0006726),
-                          ("Education_level",                 0.2007997),
-                          ("Income_scale",                    0.0730407)])
-def test_bartlett(targetVariable, pvalue):
 
-    from pystats_utils.test.homocedasticity import BartlettTest
-
-    data = testDataframe[testDataframe.Diabetes != "type_2"]
-
-    result = BartlettTest(dataframe = data,
-                          classVariable = "Diabetes",
-                          targetVariable = targetVariable).run()
-
-    assert similarity(result.pvalue, pvalue)
-
-
-@pytest.mark.parametrize(('targetVariable',                   'pvalue1',    'pvalue2',    'pvalue3'),
-                         [("Body_mass_index",                 0.02906807,   1.005764e-35, 0.03707809),
-                          ("Health_scale",                    0.5735045,    0.05623369,   0.2216088),
-                          ("Days_bad_mental_health_pre30d",   2.808665e-15, 2.596767e-61, 0.1606269),
-                          ("Days_bad_physical_health_pre30d", 5.74834e-11,  3.507784e-94, 0.3443797),
-                          ("Age_scale",                       0.0006726,    2.606134e-68, 0.001386579),
-                          ("Education_level",                 0.2007997,    1.847491e-16, 0.1202821),
-                          ("Income_scale",                    0.0730407,    8.811896e-06, 0.8785819)])
-def test_bartlettGroups(targetVariable, pvalue1, pvalue2, pvalue3):
+@pytest.mark.parametrize(('targetVariable'),
+                         variables)
+def test_bartlett(targetVariable):
 
     from pystats_utils.test.homocedasticity import BartlettTest
 
     result = BartlettTest(dataframe = testDataframe,
-                          classVariable = "Diabetes",
+                          classVariable = "group",
                           targetVariable = targetVariable).run()
 
-    assert similarity(result.pvalue["no vs. type_1"], pvalue1)
-    assert similarity(result.pvalue["no vs. type_2"], pvalue2)
-    assert similarity(result.pvalue["type_1 vs. type_2"], pvalue3)
+    robj.r("\n".join([f"pvalue1 <- bartlett.test("
+                      f"{targetVariable} ~ group,",
+                      "data = df[df$group != 'g3',])$p.value"]))
+    robj.r("\n".join([f"pvalue2 <- bartlett.test("
+                      f"{targetVariable} ~ group,",
+                      "data = df[df$group != 'g2',])$p.value"]))
+    robj.r("\n".join([f"pvalue3 <- bartlett.test("
+                      f"{targetVariable} ~ group,",
+                      "data = df[df$group != 'g1',])$p.value"]))
+
+
+    assert similarity(result.pvalue["g1 vs. g2"],
+                      robj.r("pvalue1")[0])
+    assert similarity(result.pvalue["g1 vs. g3"],
+                      robj.r("pvalue2")[0])
+    assert similarity(result.pvalue["g2 vs. g3"],
+                      robj.r("pvalue3")[0])
+
+
+
+@pytest.mark.parametrize(('targetVariable'),
+                         variables)
+def test_brownforsy(targetVariable):
+
+    from pystats_utils.test.homocedasticity import BrownForsythTest
+
+    result = BrownForsythTest(dataframe = testDataframe,
+                              classVariable = "group",
+                              targetVariable = targetVariable).run()
+
+    robj.r("library(car)")
+    robj.r("\n".join([f"pvalue1 <- leveneTest("
+                      f"{targetVariable} ~ group,",
+                      "data = df[df$group != 'g3',],",
+                      "center = 'median')$'Pr(>F)'"]))
+    robj.r("\n".join([f"pvalue2 <- leveneTest("
+                      f"{targetVariable} ~ group,",
+                      "data = df[df$group != 'g2',],",
+                      "center = 'median')$'Pr(>F)'"]))
+    robj.r("\n".join([f"pvalue3 <- leveneTest("
+                      f"{targetVariable} ~ group,",
+                      "data = df[df$group != 'g1',],",
+                      "center = 'median')$'Pr(>F)'"]))
+
+
+    assert similarity(result.pvalue["g1 vs. g2"],
+                      robj.r("pvalue1")[0])
+    assert similarity(result.pvalue["g1 vs. g3"],
+                      robj.r("pvalue2")[0])
+    assert similarity(result.pvalue["g2 vs. g3"],
+                      robj.r("pvalue3")[0])
+
+
+
+@pytest.mark.parametrize(('targetVariable'),
+                         variables)
+def test_levene(targetVariable):
+
+    from pystats_utils.test.homocedasticity import LeveneTest
+
+    result = LeveneTest(dataframe = testDataframe,
+                        classVariable = "group",
+                        targetVariable = targetVariable).run()
+
+    robj.r("library(car)")
+    robj.r("\n".join([f"pvalue1 <- leveneTest("
+                      f"{targetVariable} ~ group,",
+                      "data = df[df$group != 'g3',],",
+                      "center = 'mean')$'Pr(>F)'"]))
+    robj.r("\n".join([f"pvalue2 <- leveneTest("
+                      f"{targetVariable} ~ group,",
+                      "data = df[df$group != 'g2',],",
+                      "center = 'mean')$'Pr(>F)'"]))
+    robj.r("\n".join([f"pvalue3 <- leveneTest("
+                      f"{targetVariable} ~ group,",
+                      "data = df[df$group != 'g1',],",
+                      "center = 'mean')$'Pr(>F)'"]))
+
+
+    assert similarity(result.pvalue["g1 vs. g2"],
+                      robj.r("pvalue1")[0])
+    assert similarity(result.pvalue["g1 vs. g3"],
+                      robj.r("pvalue2")[0])
+    assert similarity(result.pvalue["g2 vs. g3"],
+                      robj.r("pvalue3")[0])
+
+
+
+@pytest.mark.parametrize(('targetVariable'),
+                         variables)
+def test_fligner(targetVariable):
+
+    from pystats_utils.test.homocedasticity import FlignerTest
+
+    result = FlignerTest(dataframe = testDataframe,
+                         classVariable = "group",
+                         targetVariable = targetVariable).run()
+
+    robj.r("\n".join([f"pvalue1 <- fligner.test(",
+                      f"formula = {targetVariable} ~ group,",
+                      "data = df[df$group != 'g3',])$p.value"]))
+    robj.r("\n".join([f"pvalue2 <- fligner.test(",
+                      f"formula = {targetVariable} ~ group,",
+                      "data = df[df$group != 'g2',])$p.value"]))
+    robj.r("\n".join([f"pvalue3 <- fligner.test(",
+                      f"formula = {targetVariable} ~ group,",
+                      "data = df[df$group != 'g1',])$p.value"]))
+
+    assert similarity(result.pvalue["g1 vs. g2"],
+                      robj.r("pvalue1")[0])
+    assert similarity(result.pvalue["g1 vs. g3"],
+                      robj.r("pvalue2")[0])
+    assert similarity(result.pvalue["g2 vs. g3"],
+                      robj.r("pvalue3")[0])
+
+
+
+@pytest.mark.parametrize(('targetVariable'),
+                         variables)
+def test_f(targetVariable):
+
+    from pystats_utils.test.homocedasticity import FTest
+
+    result = FTest(dataframe = testDataframe,
+                   classVariable = "group",
+                   targetVariable = targetVariable).run()
+
+    robj.r("\n".join([f"pvalue1 <- var.test("
+                      f"{targetVariable} ~ group,",
+                      "data = df[df$group != 'g3',],",
+                      "alternative = 'two.sided')$p.value"]))
+    robj.r("\n".join([f"pvalue2 <- var.test("
+                      f"{targetVariable} ~ group,",
+                      "data = df[df$group != 'g2',],",
+                      "alternative = 'two.sided')$p.value"]))
+    robj.r("\n".join([f"pvalue3 <- var.test("
+                      f"{targetVariable} ~ group,",
+                      "data = df[df$group != 'g1',],",
+                      "alternative = 'two.sided')$p.value"]))
+
+
+    assert similarity(result.pvalue["g1 vs. g2"],
+                      robj.r("pvalue1")[0],
+                      decimal = 1e-10)
+    assert similarity(result.pvalue["g1 vs. g3"],
+                      robj.r("pvalue2")[0],
+                      decimal = 1e-10)
+    assert similarity(result.pvalue["g2 vs. g3"],
+                      robj.r("pvalue3")[0],
+                      decimal = 1e-10)

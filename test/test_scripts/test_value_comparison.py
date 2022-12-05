@@ -1,69 +1,84 @@
 from . import similarity, testDataframe
 
 import pytest
+from pathlib import Path
+
+import rpy2.robjects as robj
+robj.r("\n".join([f"setwd('{Path(__file__).parent}')",
+                  f"df <- read.csv('../database/database_test_r.csv')"]))
+
+variables = [("num1"), ("num2"), ("num3"),
+             ("num4"), ("num5"), ("num6"),
+             ("num7"), ("num8"), ("num9")]
 
 
-@pytest.mark.parametrize(('targetVariable',                   'pvalue'),
-                         [("Body_mass_index",                 1.531363e-19),
-                          ("Health_scale",                    1.510035e-22),
-                          ("Days_bad_mental_health_pre30d",   1.859716e-07),
-                          ("Days_bad_physical_health_pre30d", 1.776008e-07),
-                          ("Age_scale",                       1.877844e-08),
-                          ("Education_level",                 1.977738e-06),
-                          ("Income_scale",                    6.705768e-08)])
-def test_mannWhitneyU(targetVariable, pvalue):
+
+@pytest.mark.parametrize(('targetVariable'),
+                         variables)
+def test_mannWhitneyU(targetVariable):
 
     from pystats_utils.test.value_comparison import MannWhitneyUTest
 
-    data = testDataframe[testDataframe.Diabetes != "type_2"]
-
-    result = MannWhitneyUTest(dataframe = data,
-                              classVariable = "Diabetes",
+    result = MannWhitneyUTest(dataframe = testDataframe,
+                              classVariable = "group",
                               targetVariable = targetVariable).run()
 
-    assert similarity(result.pvalue, pvalue)
+    robj.r(f"pvalue1 <- wilcox.test(df[df$group == 'g1',]${targetVariable}, df[df$group == 'g2',]${targetVariable})$p.value")
+    robj.r(f"pvalue2 <- wilcox.test(df[df$group == 'g1',]${targetVariable}, df[df$group == 'g3',]${targetVariable})$p.value")
+    robj.r(f"pvalue3 <- wilcox.test(df[df$group == 'g2',]${targetVariable}, df[df$group == 'g3',]${targetVariable})$p.value")
+
+    assert similarity(result.pvalue["g1 vs. g2"],
+                      robj.r("pvalue1")[0])
+    assert similarity(result.pvalue["g1 vs. g3"],
+                      robj.r("pvalue2")[0])
+    assert similarity(result.pvalue["g2 vs. g3"],
+                      robj.r("pvalue3")[0])
 
 
-@pytest.mark.parametrize(('targetVariable',                   'pvalue'),
-                         [("Body_mass_index",                 2.139538e-19),
-                          ("Health_scale",                    5.453835e-24),
-                          ("Days_bad_mental_health_pre30d",   1.681294e-09),
-                          ("Days_bad_physical_health_pre30d", 5.33664e-09),
-                          ("Age_scale",                       1.226212e-08),
-                          ("Education_level",                 1.590968e-06),
-                          ("Income_scale",                    4.924477e-08)])
-def test_studentT(targetVariable, pvalue):
+
+@pytest.mark.parametrize(('targetVariable'),
+                         variables)
+def test_studentT(targetVariable):
 
     from pystats_utils.test.value_comparison import StudentTTest
 
-    data = testDataframe[testDataframe.Diabetes != "type_2"]
-
-    result = StudentTTest(dataframe = data,
-                          classVariable = "Diabetes",
+    result = StudentTTest(dataframe = testDataframe,
+                          classVariable = "group",
                           targetVariable = targetVariable).run()
 
-    assert similarity(result.pvalue, pvalue)
+    robj.r(f"pvalue1 <- t.test(df[df$group == 'g1',]${targetVariable}, df[df$group == 'g2',]${targetVariable}, var.equal = TRUE)$p.value")
+    robj.r(f"pvalue2 <- t.test(df[df$group == 'g1',]${targetVariable}, df[df$group == 'g3',]${targetVariable}, var.equal = TRUE)$p.value")
+    robj.r(f"pvalue3 <- t.test(df[df$group == 'g2',]${targetVariable}, df[df$group == 'g3',]${targetVariable}, var.equal = TRUE)$p.value")
+
+    assert similarity(result.pvalue["g1 vs. g2"],
+                      robj.r("pvalue1")[0])
+    assert similarity(result.pvalue["g1 vs. g3"],
+                      robj.r("pvalue2")[0])
+    assert similarity(result.pvalue["g2 vs. g3"],
+                      robj.r("pvalue3")[0])
 
 
-@pytest.mark.parametrize(('targetVariable',                   'pvalue'),
-                         [("Body_mass_index",                 5.410242e-15),
-                          ("Health_scale",                    4.963507e-20),
-                          ("Days_bad_mental_health_pre30d",   1.019949e-05),
-                          ("Days_bad_physical_health_pre30d", 7.722007e-06),
-                          ("Age_scale",                       1.888631e-10),
-                          ("Education_level",                 7.647992e-06),
-                          ("Income_scale",                    6.948008e-07)])
-def test_welch(targetVariable, pvalue):
+
+@pytest.mark.parametrize(('targetVariable'),
+                         variables)
+def test_welch(targetVariable):
 
     from pystats_utils.test.value_comparison import WelchTest
 
-    data = testDataframe[testDataframe.Diabetes != "type_2"]
-
-    result = WelchTest(dataframe = data,
-                       classVariable = "Diabetes",
+    result = WelchTest(dataframe = testDataframe,
+                       classVariable = "group",
                        targetVariable = targetVariable).run()
 
-    assert similarity(result.pvalue, pvalue)
+    robj.r(f"pvalue1 <- t.test(df[df$group == 'g1',]${targetVariable}, df[df$group == 'g2',]${targetVariable}, var.equal = FALSE)$p.value")
+    robj.r(f"pvalue2 <- t.test(df[df$group == 'g1',]${targetVariable}, df[df$group == 'g3',]${targetVariable}, var.equal = FALSE)$p.value")
+    robj.r(f"pvalue3 <- t.test(df[df$group == 'g2',]${targetVariable}, df[df$group == 'g3',]${targetVariable}, var.equal = FALSE)$p.value")
+
+    assert similarity(result.pvalue["g1 vs. g2"],
+                      robj.r("pvalue1")[0])
+    assert similarity(result.pvalue["g1 vs. g3"],
+                      robj.r("pvalue2")[0])
+    assert similarity(result.pvalue["g2 vs. g3"],
+                      robj.r("pvalue3")[0])
 
 
-#  TODO Mann_Whitney
+#  TODO wilcoxon

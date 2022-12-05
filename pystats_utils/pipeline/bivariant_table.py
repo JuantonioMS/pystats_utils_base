@@ -131,126 +131,49 @@ class BivariantTable:
                 #  Categorical section
                 else:
 
-                    if len(set(workDataframe[column])) == 1:
-                        continue
-
                     template["Variable_type"] = ["categorical"]
 
                     testResult = PearsonChiSquareTest(dataframe = workDataframe,
                                                       classVariable = self.classVariable,
                                                       targetVariable = column).run()
 
-                    if len(set(workDataframe[column])) == 2:
+                    template["P_value"] = ["{:.3f}".format(testResult.lowerPvalue)]
+                    template["Test"] = [testResult.test]
 
-                        tag = list(set(workDataframe[column]))
-                        tag.sort()
-                        tag = tag[1]
+                    for tag in sorted(set(workDataframe[column])):
 
-                        template["Variable"] = [f"{column}_{tag}"]
+                        auxDataframe = pd.get_dummies(workDataframe[column])
+                        auxDataframe = auxDataframe.join(workDataframe[self.classVariable])
 
-                    #  Es dicotómica
-                    if len(set(workDataframe[column])) == 2:
+                        template["Variable"].append(f"----> {column}-{tag}")
+                        template["Variable_type"].append("categorical")
+                        template["Normality"].append("")
+                        template["Homocedasticity"].append("")
 
-                        auxDataseries = pd.get_dummies(workDataframe[column],
-                                                       drop_first = True)
+                        try:
+                            template["All"].append("{} ({:.2f})".format(np.sum(auxDataframe[tag]),
+                                                                        np.sum(auxDataframe[tag]) /\
+                                                                        len(auxDataframe[tag])))
 
-                        auxDataseries = auxDataseries[auxDataseries.columns[0]]
-
-                        allAbsolute = np.sum(auxDataseries)
-                        allRelative = round(allAbsolute / len(auxDataseries) * 100, 3)
-
-                        template["All"] = [f"{allAbsolute} ({allRelative})"]
+                        except ZeroDivisionError: template["All"].append("{} ({:.2f})".format(0, 0))
 
                         for group in groups:
 
-                            aux = workDataframe[workDataframe[self.classVariable] == group]
+                            try:
+                                template[group].append("{} ({:.2f})".format(np.sum(auxDataframe[auxDataframe[self.classVariable] == group][tag]),
+                                                                            np.sum(auxDataframe[auxDataframe[self.classVariable] == group][tag]) /\
+                                                                            len(auxDataframe[auxDataframe[self.classVariable] == group][tag])))
 
-                            if len(set(aux[column])) == 1:
+                            except ZeroDivisionError: template[group].append("{} ({:.2f})".format(0, 0))
 
-                                auxDataseries = pd.get_dummies(aux[column],
-                                                               drop_first = False)
+                        auxDataframe = auxDataframe.replace(1, "yes").replace(0, "no")
 
-                                if auxDataseries.columns[0] == tag:
-                                    template[group] = [f"{len(auxDataseries)} (100.0)"]
-                                else:
-                                    template[group] = [f"0 (0.0)"]
+                        testResult = PearsonChiSquareTest(dataframe = auxDataframe,
+                                                          classVariable = self.classVariable,
+                                                          targetVariable = tag).run()
 
-
-                            else:
-                                auxDataseries = pd.get_dummies(aux[column],
-                                                            drop_first = True)
-
-                                auxDataseries = auxDataseries[auxDataseries.columns[0]]
-
-                                groupAbsolute = np.sum(auxDataseries)
-                                groupRelative = round(groupAbsolute / len(auxDataseries) * 100, 3)
-
-                                template[group] = [f"{groupAbsolute} ({groupRelative})"]
-
-                    #  No es dicotómica
-                    else:
-
-                        auxDataframe = pd.get_dummies(workDataframe[column]).replace(1, "yes").replace(0, "no")
-                        auxDataframe = auxDataframe.join(workDataframe[self.classVariable])
-
-                        for column in [column for column in auxDataframe.columns if column != self.classVariable]:
-
-                            template["Variable"].append(f"----> {column}")
-                            template["Variable_type"].append("categorical")
-                            template["Normality"].append("")
-                            template["Homocedasticity"].append("")
-
-                            testResult = PearsonChiSquareTest(dataframe = auxDataframe,
-                                                              classVariable = self.classVariable,
-                                                              targetVariable = column).run()
-
-                            template["P_value"].append(round(testResult.pvalue, 3))
-                            template["Test"].append(testResult.test)
-
-                            auxWorkDataframe = reduceDataframe(auxDataframe,
-                                                               self.classVariable, column)
-
-                            if len(set(auxWorkDataframe[column])) == 1:
-
-                                if "yes" in set(auxWorkDataframe[column]):
-                                    template["All"].append(f"{len(auxWorkDataframe)} (100.0)")
-                                else:
-                                    template["All"].append(f"0 (100.0)")
-
-                                for group in groups:
-
-                                    groupAuxWorkDataframe = auxWorkDataframe[auxWorkDataframe[self.classVariable] == group]
-
-                                    if auxWorkDataframe.columns[0] == "yes":
-                                        template[group].append(f"{len(groupAuxWorkDataframe)} (100.0)")
-                                    else:
-                                        template[group].append(f"0 (100.0)")
-
-                            else:
-
-                                numAuxWorkDataframe = auxWorkDataframe.replace("yes", 1).replace("no", 0)
-
-                                allAbsolute = np.sum(numAuxWorkDataframe[column])
-
-                                allRelative = round(allAbsolute / len(numAuxWorkDataframe) * 100, 3)
-
-                                template["All"].append(f"{allAbsolute} ({allRelative})")
-
-                                for group in groups:
-
-                                    groupAuxWorkDataframe = auxWorkDataframe[auxWorkDataframe[self.classVariable] == group]
-
-                                    numGroupAuxWorkDataframe = groupAuxWorkDataframe.replace("yes", 1).replace("no", 0)
-
-                                    groupAbsolute = np.sum(numGroupAuxWorkDataframe[column])
-                                    groupRelative = round(groupAbsolute / len(numGroupAuxWorkDataframe) * 100, 3)
-
-                                    template[group].append(f"{groupAbsolute} ({groupRelative})")
-
-
-                #  Sección común
-                template["P_value"] = ["{:.3f}".format(testResult.lowerPvalue)]
-                template["Test"] = [testResult.test]
+                        template["P_value"].append("{:.3f}".format(testResult.lowerPvalue))
+                        template["Test"].append(testResult.test)
 
                 table = pd.concat([table,
                                    pd.DataFrame(template)])

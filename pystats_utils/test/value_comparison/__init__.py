@@ -9,3 +9,4 @@ from pystats_utils.test.value_comparison.mann_whitney_u_test import MannWhitneyU
 from pystats_utils.test.value_comparison.t_test import StudentTTest
 from pystats_utils.test.value_comparison.welch_test import WelchTest
 from pystats_utils.test.value_comparison.wilcoxon_signed_rank_test import WilocoxonSignedRankTest
+from pystats_utils.test.value_comparison.roc_analysis import RocAnalysis
