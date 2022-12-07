@@ -25,13 +25,11 @@ class LogisticExploration:
 
         header = {"Variable" : pd.Series(dtype = "str"),
                   "OR(95CI)" : pd.Series(dtype = "str"),
-                  "P value"  : pd.Series(dtype = "float")}
+                  "P value"  : pd.Series(dtype = "str")}
 
         table = pd.DataFrame(header)
-
-
         
-
+        template = dict([(key, []) for key in header])
 
         for column in self.dataframe:
 
@@ -42,52 +40,53 @@ class LogisticExploration:
                     workDataframe = reduceDataframe(self.dataframe,
                                                     self.classVariable, column)
 
-                    if len(set(workDataframe[column])) == 1:
-                        continue
+                    #  Categorical section
+                    if isCategorical(workDataframe, column):
+                        
+                        auxDataframe = pd.get_dummies(workDataframe[column],
+                                                      prefix = column)
+                        
+                        for auxColumn in auxDataframe:
+                            
+                            result = LogisticRegression(dataframe = pd.concat([workDataframe[self.classVariable],
+                                                                               auxDataframe[auxColumn]],
+                                                                              axis = 1),
+                                                        classVariable = self.classVariable,
+                                                        targetVariable = [auxColumn],
+                                                        bootstrapping = 0).run()
+                            
+                            for index, row in result.params.iterrows():
 
-                    if len(set(workDataframe[column])) > 2 and isCategorical(workDataframe, column):
-
-                        auxColumns = pd.get_dummies(workDataframe[column],
-                                                    prefix = column)
-
-                        workDataframe = workDataframe.drop(columns = [column])
-
-                        workDataframe = pd.concat([workDataframe, auxColumns],
-                                                  axis = 1)
-
-
-                    template = dict([(key, [""]) for key in header])
-
-                    for targetVariable in [targetVariable for targetVariable in workDataframe.columns if targetVariable != self.classVariable]:
-
+                                if index != 0:
+                                    template["Variable"].append(row["Predictor"])
+                                    template["OR(95CI)"].append("{:.2f} ({:.2f} - {:.2f})".format(row["aOR"],
+                                                                                                  row["CI 2.5%"],
+                                                                                                  row["CI 97.5%"]))
+                                    template["P value"].append("{:.3f}".format(row["P value"]))
+                            
+                            
+                            
+                            
+                    #  Numerical section
+                    else:
+                        
                         result = LogisticRegression(dataframe = workDataframe,
                                                     classVariable = self.classVariable,
-                                                    targetVariables = [targetVariable]).run()
-
-                        result.params["OR(95CI)"] = result.params.apply(lambda row: formatCell(row), axis = 1)
-                        result.params["P value"] = result.params.apply(lambda row: round(row["P value"], 3), axis = 1)
-
+                                                    targetVariable = [column],
+                                                    bootstrapping = 0).run()
+                        
                         for index, row in result.params.iterrows():
 
                             if index != 0:
                                 template["Variable"].append(row["Predictor"])
-                                template["OR(95CI)"].append(row["OR(95CI)"])
-                                template["P value"].append(row["P value"])
-
-                    for key in template:
-                        template[key] = template[key][1:]
-
-                    table = pd.concat([table,
-                                    pd.DataFrame(template)])
+                                template["OR(95CI)"].append("{:.2f} ({:.2f} - {:.2f})".format(row["aOR"],
+                                                                                                row["CI 2.5%"],
+                                                                                                row["CI 97.5%"]))
+                                template["P value"].append("{:.3f}".format(row["P value"]))
 
                 except:
                     pass
+                
+        table = pd.concat([table, pd.DataFrame(template)])
 
         return table
-
-
-def formatCell(row):
-
-    cell = f"{round(row['aOR'], 2)} ({round(row['CI 2.5%'], 2)} - {round(row['CI 97.5%'], 2)})"
-
-    return cell

@@ -47,14 +47,14 @@ class LogisticRegression(MultivariantTest):
         rocResult = RocAnalysis(dataframe = pd.DataFrame({"expected" : data[self.classVariable],
                                                           "probability" : model.predict()}),
                                 classVariable = "expected",
-                                targetVariable = "probability").run()
+                                targetVariable = "probability").run(bootstrapping = self.bootstrapping)
 
         #  Confussion matrix
         predictedClass = [1 if probability > rocResult.cutOff else 0 for probability in model.predict()]
         matrixResult = ConfussionMatrixAnalysis(dataframe = pd.DataFrame({"expected" : data[self.classVariable],
                                                              "predicted" : predictedClass}),
                                                 classVariable = "expected",
-                                                targetVariable = "predicted").run()
+                                                targetVariable = "predicted").run(bootstrapping = self.bootstrapping)
 
         for aux in [rocResult, matrixResult]:
 
@@ -62,9 +62,9 @@ class LogisticRegression(MultivariantTest):
                     if atr not in ["summary", "test", "context"]:
                             results[atr] = aux.__dict__[atr]
 
-
-        results["summary"] = pd.concat((rocResult.summary,
-                                        matrixResult.summary),
-                                       axis = 0)
+        if self.bootstrapping:
+            results["summary"] = pd.concat((rocResult.summary,
+                                            matrixResult.summary),
+                                        axis = 0)
 
         return results

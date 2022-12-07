@@ -1,4 +1,3 @@
-from sys import prefix
 import pandas as pd
 
 from pystats_utils.test import Test
@@ -10,7 +9,10 @@ class MultivariantTest(Test):
     def __init__(self,
                  dataframe: pd.DataFrame = pd.DataFrame(),
                  classVariable: str = "",
-                 targetVariable: list = []):
+                 targetVariable: list = [],
+                 bootstrapping: int = 2000):
+
+        self.bootstrapping = bootstrapping
 
         super().__init__(dataframe = dataframe,
                          classVariable = classVariable,

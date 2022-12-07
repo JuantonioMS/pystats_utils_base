@@ -46,13 +46,16 @@ class ConfussionMatrixAnalysis(CategoricalComparison):
         results["error"] = 1 -  results["accuracy"]
 
         results["precision"] = precision_score(data[self.classVariable],
-                                               data[self.targetVariable])
+                                               data[self.targetVariable],
+                                             zero_division = 0)
 
         results["recall"] = recall_score(data[self.classVariable],
-                                         data[self.targetVariable])
+                                         data[self.targetVariable],
+                                             zero_division = 0)
 
         results["f1"] = f1_score(data[self.classVariable],
-                                 data[self.targetVariable])
+                                 data[self.targetVariable],
+                                             zero_division = 0)
 
 
         accuracies, errors, precisions, recalls, f1s = [], [], [], [], []
