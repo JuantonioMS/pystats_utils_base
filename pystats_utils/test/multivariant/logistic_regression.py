@@ -1,3 +1,7 @@
+import warnings
+from statsmodels.tools.sm_exceptions import ConvergenceWarning
+warnings.simplefilter('ignore', ConvergenceWarning)
+
 import statsmodels.formula.api as smf
 
 import pandas as pd

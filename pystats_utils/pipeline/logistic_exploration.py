@@ -28,7 +28,7 @@ class LogisticExploration:
                   "P value"  : pd.Series(dtype = "str")}
 
         table = pd.DataFrame(header)
-        
+
         template = dict([(key, []) for key in header])
 
         for column in self.dataframe:
@@ -42,19 +42,19 @@ class LogisticExploration:
 
                     #  Categorical section
                     if isCategorical(workDataframe, column):
-                        
+
                         auxDataframe = pd.get_dummies(workDataframe[column],
                                                       prefix = column)
-                        
+
                         for auxColumn in auxDataframe:
-                            
+
                             result = LogisticRegression(dataframe = pd.concat([workDataframe[self.classVariable],
                                                                                auxDataframe[auxColumn]],
                                                                               axis = 1),
                                                         classVariable = self.classVariable,
                                                         targetVariable = [auxColumn],
                                                         bootstrapping = 0).run()
-                            
+
                             for index, row in result.params.iterrows():
 
                                 if index != 0:
@@ -63,18 +63,18 @@ class LogisticExploration:
                                                                                                   row["CI 2.5%"],
                                                                                                   row["CI 97.5%"]))
                                     template["P value"].append("{:.3f}".format(row["P value"]))
-                            
-                            
-                            
-                            
+
+
+
+
                     #  Numerical section
                     else:
-                        
+
                         result = LogisticRegression(dataframe = workDataframe,
                                                     classVariable = self.classVariable,
                                                     targetVariable = [column],
                                                     bootstrapping = 0).run()
-                        
+
                         for index, row in result.params.iterrows():
 
                             if index != 0:
@@ -86,7 +86,7 @@ class LogisticExploration:
 
                 except:
                     pass
-                
+
         table = pd.concat([table, pd.DataFrame(template)])
 
         return table

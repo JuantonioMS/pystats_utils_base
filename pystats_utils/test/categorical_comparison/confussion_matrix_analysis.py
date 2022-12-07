@@ -1,6 +1,8 @@
 import pandas as pd
 import numpy as np
 
+from sklearn.metrics import confusion_matrix
+
 from sklearn.metrics import accuracy_score
 from sklearn.metrics import precision_score
 from sklearn.metrics import recall_score
@@ -28,9 +30,8 @@ class ConfussionMatrixAnalysis(CategoricalComparison):
 
         for variable in [self.classVariable, self.targetVariable]:
 
-            if isCategorical(dataframe, self.classVariable):
-                dataframe[variable] = pd.get_dummies(dataframe[variable],
-                                                     drop_first = True)
+            dataframe[variable] = pd.get_dummies(dataframe[variable],
+                                                 drop_first = True if len(set(dataframe[variable])) > 1 else False)
 
         return dataframe
 
@@ -57,8 +58,17 @@ class ConfussionMatrixAnalysis(CategoricalComparison):
                                  data[self.targetVariable],
                                              zero_division = 0)
 
+        results["tn"], results["fp"], results["fn"], results["tp"] = confusion_matrix(data[self.classVariable],
+                                                                                      data[self.targetVariable]).ravel()
 
-        accuracies, errors, precisions, recalls, f1s = [], [], [], [], []
+        results["specificity"] = results["tn"] / (results["tn"] + results["fp"])
+        results["sensitivity"] = results["tp"] / (results["tp"] + results["fn"])
+
+        results["ppv"] = results["tp"] / (results["tp"] + results["fp"])
+        results["npv"] = results["tn"] / (results["tn"] + results["fn"])
+
+
+        accuracies, errors, precisions, recalls, f1s, sensitivities, specificities, ppvs, npvs = [], [], [], [], [], [], [], [], []
         for _ in range(self.bootstrapping):
 
             bootResult = ConfussionMatrixAnalysis(dataframe = resample(data),
@@ -70,11 +80,23 @@ class ConfussionMatrixAnalysis(CategoricalComparison):
             precisions.append(bootResult.precision)
             recalls.append(bootResult.recall)
             f1s.append(bootResult.f1)
+            sensitivities.append(bootResult.sensitivity)
+            specificities.append(bootResult.specificity)
+            ppvs.append(bootResult.ppv)
+            npvs.append(bootResult.npv)
 
         if self.bootstrapping:
 
-            values = [results["accuracy"], results["error"], results["precision"], results["recall"], results["f1"]]
-            boots = [accuracies, errors, precisions, recalls, f1s]
+            values = [results["accuracy"], results["error"],
+                      results["precision"], results["recall"],
+                      results["f1"],
+                      results["sensitivity"], results["specificity"],
+                      results["ppv"], results["npv"]]
+            boots = [accuracies, errors,
+                     precisions, recalls,
+                     f1s,
+                     sensitivities, specificities,
+                     ppvs, npvs]
 
             lowerCI = [original - 1.97 * np.std(boot)   for original, boot in zip(values, boots)]
             lowerCI = [ci if ci > 0 else 0.0 for ci in lowerCI]
@@ -89,7 +111,11 @@ class ConfussionMatrixAnalysis(CategoricalComparison):
                                              "Error",
                                              "Precision",
                                              "Recall",
-                                             "F1"])
+                                             "F1",
+                                             "Sensitivity",
+                                             "Specificity",
+                                             "PPV",
+                                             "NPV"])
 
             results["summary"] = summary
 

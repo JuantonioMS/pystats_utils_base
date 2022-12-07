@@ -47,4 +47,4 @@ class MultivariantTest(Test):
                       **testResults)
 
 from pystats_utils.test.multivariant.logistic_regression import LogisticRegression
-#from pystats_utils.test.multivariant.coxph_regression import CoxPhRegression
+from pystats_utils.test.multivariant.coxph_regression import CoxPhRegression

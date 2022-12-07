@@ -1,5 +1,4 @@
 import pandas as pd
-import numpy as np
 
 from pystats_utils.test.multivariant import CoxPhRegression
 
@@ -18,7 +17,7 @@ class CoxExploration:
         self.dataframe = dataframe
 
         self.eventVariable = eventVariable
-        
+
         self.timeVariable = timeVariable
 
         self.excludedVariables = excludedVariables
@@ -28,10 +27,11 @@ class CoxExploration:
 
         header = {"Variable" : pd.Series(dtype = "str"),
                   "HR(95CI)" : pd.Series(dtype = "str"),
-                  "P value"  : pd.Series(dtype = "float")}
+                  "P value"  : pd.Series(dtype = "str")}
 
         table = pd.DataFrame(header)
 
+        template = dict([(key, []) for key in header])
         for column in self.dataframe:
 
             if column not in self.excludedVariables + [self.eventVariable, self.timeVariable]:
@@ -43,54 +43,47 @@ class CoxExploration:
                                                     self.timeVariable,
                                                     column)
 
-                    if len(set(workDataframe[column])) == 1:
-                        continue
+                    if isCategorical(workDataframe, column):
 
-                    if len(set(workDataframe[column])) > 2 and isCategorical(workDataframe, column):
+                         auxDataframe = pd.get_dummies(workDataframe[column],
+                                                       prefix = column)
 
-                        auxColumns = pd.get_dummies(workDataframe[column],
-                                                    prefix = column)
+                         for auxColumn in auxDataframe:
 
-                        workDataframe = workDataframe.drop(columns = [column])
+                            result = CoxPhRegression(dataframe = pd.concat([workDataframe[self.eventVariable],
+                                                                            workDataframe[self.timeVariable],
+                                                                            auxDataframe[auxColumn]],
+                                                                            axis = 1),
+                                                     eventVariable = self.eventVariable,
+                                                     timeVariable = self.timeVariable,
+                                                     targetVariable = [auxColumn]).run()
 
-                        workDataframe = pd.concat([workDataframe, auxColumns],
-                                                  axis = 1)
+                            for _, row in result.params.iterrows():
 
+                                template["Variable"].append(row["Predictor"])
+                                template["HR(95CI)"].append("{:.2f} ({:.2f} - {:.2f}".format(row["aHR"],
+                                                                                             row["CI 2.5%"],
+                                                                                             row["CI 97.5%"]))
+                                template["P value"].append("{:.3f}".format(row["P values"]))
 
-                    template = dict([(key, [""]) for key in header])
-
-                    for targetVariable in [targetVariable for targetVariable in workDataframe.columns if targetVariable not in [self.eventVariable,
-                                                                                                                                self.timeVariable]]:
+                    else:
 
                         result = CoxPhRegression(dataframe = workDataframe,
                                                  eventVariable = self.eventVariable,
                                                  timeVariable = self.timeVariable,
-                                                 targetVariables = [targetVariable]).run()
+                                                 targetVariable = [column]).run()
 
-                        result.params["HR(95CI)"] = result.params.apply(lambda row: formatCell(row), axis = 1)
-                        result.params["P value"] = result.params.apply(lambda row: round(row["P values"], 3), axis = 1)
+                        for _, row in result.params.iterrows():
 
-                        for index, row in result.params.iterrows():
-
-                            if index != 0:
-                                template["Variable"].append(row["Predictor"])
-                                template["HR(95CI)"].append(row["HR(95CI)"])
-                                template["P value"].append(row["P value"])
-
-                    for key in template:
-                        template[key] = template[key][1:]
-
-                    table = pd.concat([table,
-                                    pd.DataFrame(template)])
+                            template["Variable"].append(row["Predictor"])
+                            template["HR(95CI)"].append("{:.2f} ({:.2f} - {:.2f}".format(row["aHR"],
+                                                                                         row["CI 2.5%"],
+                                                                                         row["CI 97.5%"]))
+                            template["P value"].append("{:.3f}".format(row["P values"]))
 
                 except:
                     pass
 
+        table = pd.concat([table, pd.DataFrame(template)])
+
         return table
-
-
-def formatCell(row):
-
-    cell = f"{round(row['aHR'], 2)} ({round(row['CI 2.5%'], 2)} - {round(row['CI 97.5%'], 2)})"
-
-    return cell
