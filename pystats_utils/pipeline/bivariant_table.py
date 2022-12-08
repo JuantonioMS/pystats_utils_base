@@ -63,8 +63,6 @@ class BivariantTable:
                 #  Numerical section
                 if  not isCategorical(self.dataframe, column):
 
-                #  Categorical section
-
                     template["Variable_type"] = ["numerical"]
 
 
