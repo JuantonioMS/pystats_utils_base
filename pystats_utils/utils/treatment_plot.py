@@ -56,7 +56,7 @@ def generatePlot(info, width = 0.9, height = 0.9, days = 30, title = "title"):
 
     allAtbs = set()
     for patient in info:
-        for step in patient.translateTreatmentLine():
+        for step in patient.translateTreatmentLine(days = 30, start = patient.bloodculture):
             maximum.append(len(step))
             for atb in step:
                 allAtbs.add(mask[atb])
@@ -92,11 +92,12 @@ def generatePlot(info, width = 0.9, height = 0.9, days = 30, title = "title"):
 
 
     # Ordena pacientes de menos cambios a más cambios
-    info.sort(key = lambda x: len(x.translateTreatmentLine(days = days)), reverse = True)
+    info.sort(key = lambda x: len(x.translateTreatmentLine(days = days,
+                                                           start = x.bloodculture)), reverse = True)
 
     for indexPt, patient in enumerate(info):
 
-        for indexStep, step in enumerate(patient.translateTreatmentLine(days = days)):
+        for indexStep, step in enumerate(patient.translateTreatmentLine(days = days, start = patient.bloodculture)):
 
             step = [mask[atb] for atb in step]
             step.sort(reverse = True)

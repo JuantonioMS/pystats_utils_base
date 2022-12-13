@@ -58,19 +58,20 @@ class Antibiotic:
 class Patient:
 
 
-    def __init__(self, info): self.extractInfo(info)
+    def __init__(self, info):
+
+        self.extractInfo(info)
+        self.bloodculture = dt.strptime(self.bloodculture, "%m/%d/%y")
 
 
     def extractInfo(self, info):
-
 
         for column in info.index:
             value = info[column]
 
             if "ATB" not in column: setattr(self, column.lower(), value.lower() if isinstance(value, str) else value)
 
-
-        columns = info.index[18:]
+        columns = info.index[16:]
 
         self.treatment = []
         for index, column in enumerate(columns[::7]):
@@ -127,6 +128,7 @@ class Patient:
                                mergeInactive: bool = True,
                                condensed: bool = True,
                                days: int = 30,
+                               start = False,
                                verbose: bool = False):
 
         timeline = []
@@ -147,6 +149,15 @@ class Patient:
         else:
             timeline = self.treatmentLine
 
+
+        if start:
+
+            if start >= self.firstDay:
+                timeline = timeline[(start - self.firstDay).days:]
+
+            else:
+                a = [{}] * (self.firstDay - start).days
+                timeline = a + timeline
 
         if days: timeline = timeline[:days]
 
