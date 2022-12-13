@@ -35,8 +35,6 @@ class LogisticExploration:
 
             if column not in self.excludedVariables + [self.classVariable]:
 
-                try:
-
                     workDataframe = reduceDataframe(self.dataframe,
                                                     self.classVariable, column)
 
@@ -48,21 +46,26 @@ class LogisticExploration:
 
                         for auxColumn in auxDataframe:
 
-                            result = LogisticRegression(dataframe = pd.concat([workDataframe[self.classVariable],
-                                                                               auxDataframe[auxColumn]],
-                                                                              axis = 1),
-                                                        classVariable = self.classVariable,
-                                                        targetVariable = [auxColumn],
-                                                        bootstrapping = 0).run()
+                            try:
 
-                            for index, row in result.params.iterrows():
+                                result = LogisticRegression(dataframe = pd.concat([workDataframe[self.classVariable],
+                                                                                auxDataframe[auxColumn]],
+                                                                                axis = 1),
+                                                            classVariable = self.classVariable,
+                                                            targetVariable = [auxColumn],
+                                                            bootstrapping = 0).run()
 
-                                if index != 0:
-                                    template["Variable"].append(row["Predictor"])
-                                    template["OR(95CI)"].append("{:.2f} ({:.2f} - {:.2f})".format(row["aOR"],
-                                                                                                  row["CI 2.5%"],
-                                                                                                  row["CI 97.5%"]))
-                                    template["P value"].append("{:.3f}".format(row["P value"]))
+                                for index, row in result.params.iterrows():
+
+                                    if index != 0:
+                                        template["Variable"].append(row["Predictor"])
+                                        template["OR(95CI)"].append("{:.2f} ({:.2f} - {:.2f})".format(row["aOR"],
+                                                                                                    row["CI 2.5%"],
+                                                                                                    row["CI 97.5%"]))
+                                        template["P value"].append("{:.3f}".format(row["P value"]))
+
+                            except Exception as e:
+                                print(auxColumn, e)
 
 
 
@@ -70,22 +73,25 @@ class LogisticExploration:
                     #  Numerical section
                     else:
 
-                        result = LogisticRegression(dataframe = workDataframe,
-                                                    classVariable = self.classVariable,
-                                                    targetVariable = [column],
-                                                    bootstrapping = 0).run()
+                        try:
 
-                        for index, row in result.params.iterrows():
+                            result = LogisticRegression(dataframe = workDataframe,
+                                                        classVariable = self.classVariable,
+                                                        targetVariable = [column],
+                                                        bootstrapping = 0).run()
 
-                            if index != 0:
-                                template["Variable"].append(row["Predictor"])
-                                template["OR(95CI)"].append("{:.2f} ({:.2f} - {:.2f})".format(row["aOR"],
-                                                                                                row["CI 2.5%"],
-                                                                                                row["CI 97.5%"]))
-                                template["P value"].append("{:.3f}".format(row["P value"]))
+                            for index, row in result.params.iterrows():
 
-                except:
-                    pass
+                                if index != 0:
+                                    template["Variable"].append(row["Predictor"])
+                                    template["OR(95CI)"].append("{:.2f} ({:.2f} - {:.2f})".format(row["aOR"],
+                                                                                                    row["CI 2.5%"],
+                                                                                                    row["CI 97.5%"]))
+                                    template["P value"].append("{:.3f}".format(row["P value"]))
+
+                        except Exception as e:
+                            print(column, e)
+
 
         table = pd.concat([table, pd.DataFrame(template)])
 
