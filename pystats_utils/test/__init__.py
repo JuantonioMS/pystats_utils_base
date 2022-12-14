@@ -74,7 +74,7 @@ class Test:
 
     def cookResult(self, **result):
 
-        fields = ["pvalue", "statistic"]
+        fields = ["pvalue", "statistic", "df"]
 
         for field in fields:
 

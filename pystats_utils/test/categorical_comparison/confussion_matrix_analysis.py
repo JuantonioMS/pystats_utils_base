@@ -11,7 +11,6 @@ from sklearn.metrics import f1_score
 from sklearn.utils import resample
 
 from pystats_utils.test.categorical_comparison import CategoricalComparison
-from pystats_utils.data_operations import isCategorical
 
 
 class ConfussionMatrixAnalysis(CategoricalComparison):
