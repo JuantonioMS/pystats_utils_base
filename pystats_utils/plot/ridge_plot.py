@@ -83,14 +83,3 @@ class RidgePlot(Plot):
         plt.suptitle(kwargs["title"], y = 0.98)
 
         return g
-
-
-    def run(self, **kwargs):
-
-        dataframe = self.cleanData()
-
-        data = self.cookData(dataframe)
-
-        result = self.runPlot(data, **kwargs)
-
-        return result

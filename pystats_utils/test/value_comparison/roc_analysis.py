@@ -45,11 +45,12 @@ class RocAnalysis(ValueComparison):
         fpr, tpr, thresholds = roc_curve(data[self.classVariable],
                                          data[self.targetVariable])
 
-        aux = np.arange(len(tpr))
-        roc = pd.DataFrame({'tf' : pd.Series(abs(tpr - (1 - fpr)), index = aux),
-                            'thresholds' : pd.Series(thresholds, index = aux)})
+        info = pd.DataFrame({"FPR"       : fpr,
+                             "TPR"       : tpr,
+                             "Threshold" : thresholds,
+                             "opt"       : tpr + (1 - fpr)})
 
-        cutOff = list(roc.iloc[(roc.tf).abs().argsort()[:1]]["thresholds"])[0]
+        cutOff = info['Threshold'].iloc[info['opt'].idxmax()]
 
         results["aucROC"] = aucROC
         results["cutOff"] = cutOff
@@ -70,11 +71,11 @@ class RocAnalysis(ValueComparison):
 
             values, boots = [aucROC, cutOff], [aucROCs, cutOffs]
 
-            lowerCI = [original - 1.97 * np.std(boot)   for original, boot in zip(values, boots)]
-            lowerCI = [ci if ci > 0 else 0.0 for ci in lowerCI]
+            lowerCI = [original - 1.97 * np.std(boot) for original, boot in zip(values, boots)]
+            lowerCI = [ci if ci > 0 else 0.0 for ci in lowerCI[:1]] + [lowerCI[1]]
 
-            upperCI = [original + 1.97 * np.std(boot)   for original, boot in zip(values, boots)]
-            upperCI = [ci if ci < 1 else 1.0 for ci in upperCI]
+            upperCI = [original + 1.97 * np.std(boot) for original, boot in zip(values, boots)]
+            upperCI = [ci if ci < 1 else 1.0 for ci in upperCI[:1]] + [upperCI[1]]
 
             summary = pd.DataFrame({"Value"    : values,
                                     "CI 2.5%"  : lowerCI,
