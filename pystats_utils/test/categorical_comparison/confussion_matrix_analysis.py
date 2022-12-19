@@ -70,7 +70,7 @@ class ConfussionMatrixAnalysis(CategoricalComparison):
         accuracies, errors, precisions, recalls, f1s, sensitivities, specificities, ppvs, npvs = [], [], [], [], [], [], [], [], []
         for _ in range(self.bootstrapping):
 
-            bootResult = ConfussionMatrixAnalysis(dataframe = resample(data),
+            bootResult = ConfussionMatrixAnalysis(dataframe = resample(data, stratify = data[self.classVariable]),
                                                   classVariable = self.classVariable,
                                                   targetVariable = self.targetVariable).run(bootstrapping = 0)
 

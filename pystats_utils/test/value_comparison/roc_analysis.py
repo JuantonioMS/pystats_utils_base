@@ -1,5 +1,5 @@
 import warnings
-warnings.filterwarnings('ignore') 
+warnings.filterwarnings('ignore')
 
 import pandas as pd
 import numpy as np
@@ -59,7 +59,7 @@ class RocAnalysis(ValueComparison):
         aucROCs, cutOffs = [], []
         for _ in range(self.bootstrapping):
 
-            bootResult = RocAnalysis(dataframe = resample(data),
+            bootResult = RocAnalysis(dataframe = resample(data, stratify = data[self.classVariable]),
                                      classVariable = self.classVariable,
                                      targetVariable = self.targetVariable).run(bootstrapping = 0)
 
