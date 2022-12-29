@@ -111,7 +111,7 @@ class BivariantTable:
                                                       classVariable = self.classVariable,
                                                       targetVariable = column).run()
 
-                    template["All"] = ["{:.2f} ({:.2f} - {:.2f})".format(np.mean(workDataframe[column]),
+                    template["All"] = ["{:.2f} ({:.2f} - {:.2f})".format(np.median(workDataframe[column]),
                                                                         np.percentile(workDataframe[column], 25),
                                                                         np.percentile(workDataframe[column], 75))]
 
@@ -119,7 +119,7 @@ class BivariantTable:
 
                         aux = workDataframe[workDataframe[self.classVariable] == group]
 
-                        template[group] = ["{:.2f} ({:.2f} - {:.2f})".format(np.mean(aux[column]),
+                        template[group] = ["{:.2f} ({:.2f} - {:.2f})".format(np.median(aux[column]),
                                                                             np.percentile(aux[column], 25),
                                                                             np.percentile(aux[column], 75))]
 
@@ -149,20 +149,20 @@ class BivariantTable:
                         template["Homocedasticity"].append("")
 
                         try:
-                            template["All"].append("{} ({:.2f})".format(np.sum(auxDataframe[tag]),
+                            template["All"].append("{} ({:.1f})".format(np.sum(auxDataframe[tag]),
                                                                         np.sum(auxDataframe[tag]) /\
-                                                                        len(auxDataframe[tag])))
+                                                                        len(auxDataframe[tag]) * 100))
 
-                        except ZeroDivisionError: template["All"].append("{} ({:.2f})".format(0, 0))
+                        except ZeroDivisionError: template["All"].append("{} ({:.1f})".format(0, 0))
 
                         for group in groups:
 
                             try:
                                 template[group].append("{} ({:.2f})".format(np.sum(auxDataframe[auxDataframe[self.classVariable] == group][tag]),
                                                                             np.sum(auxDataframe[auxDataframe[self.classVariable] == group][tag]) /\
-                                                                            len(auxDataframe[auxDataframe[self.classVariable] == group][tag])))
+                                                                            len(auxDataframe[auxDataframe[self.classVariable] == group][tag]) * 100))
 
-                            except ZeroDivisionError: template[group].append("{} ({:.2f})".format(0, 0))
+                            except ZeroDivisionError: template[group].append("{} ({:.1f})".format(0, 0))
 
                         auxDataframe = auxDataframe.replace(1, "yes").replace(0, "no")
 

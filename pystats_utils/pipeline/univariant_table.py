@@ -52,7 +52,7 @@ class UnivariantTable:
                     template["Non empty"].append("")
 
             else:
-                template["Information"].append("{:.2f} ({:.2f} - {:.2f})".format(np.mean(workDataframe[column]),
+                template["Information"].append("{:.2f} ({:.2f} - {:.2f})".format(np.median(workDataframe[column]),
                                                                                  np.percentile(workDataframe[column], 25),
                                                                                  np.percentile(workDataframe[column], 75)))
 
