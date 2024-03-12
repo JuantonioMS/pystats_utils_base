@@ -1,179 +1,257 @@
-import pandas as pd
 import numpy as np
+import pandas as pd
 
-from pystats_utils.test.normality import KolmogorovSmirnovTest
-from pystats_utils.test.homocedasticity import LeveneTest, BrownForsythTest
-from pystats_utils.test.value_comparison import StudentTTest, WelchTest, MannWhitneyUTest
-from pystats_utils.test.categorical_comparison import PearsonChiSquareTest
+from pystats_utils.statistical_test.bivariate.normality.kolmogorov_test import KolmogorovSmirnovTest
+from pystats_utils.statistical_test.bivariate.homocedasticity.levene_test import LeveneTest
 
-from pystats_utils.data_operations import isCategorical
-from pystats_utils.data_operations import reduceDataframe
+from pystats_utils.statistical_test.bivariate.value_comparison.t_test import StudentTTest
+from pystats_utils.statistical_test.bivariate.value_comparison.welch_test import WelchTest
+from pystats_utils.statistical_test.bivariate.value_comparison.mann_whitney_u_test import MannWhitneyUTest
+from pystats_utils.statistical_test.bivariate.factor_comparison.pearson_chi_square_test import PearsonChiSquareTest
 
+from pystats_utils.configuration.key_words import P_VALUE
 
 class BivariantTable:
 
+
+
     def __init__(self,
-                 dataframe: pd.DataFrame = pd.DataFrame(),
-                 classVariable: str = "",
+                 database = None,
+                 dependentVariable: str = "",
                  excludedVariables: list = []):
 
-        self.dataframe = dataframe
 
-        self.classVariable = classVariable
+        self.__database = database
+        self.__dependentVariable = dependentVariable
+        self.__excludedVariables = excludedVariables
 
-        self.excludedVariables = excludedVariables
 
 
     def run(self) -> pd.DataFrame:
 
-        startColumns = {"Variable" : pd.Series(dtype = "str"),
-                        "All" : pd.Series(dtype = str)}
-
-        groups = list(set(list(self.dataframe[self.classVariable].dropna())))
-
-        groups.sort()
-
-        groupColumns = dict([(group, pd.Series(dtype = "str")) for group in groups])
-
-        endColumns = {"P_value" : pd.Series(dtype = "float"),
-                      "Test" : pd.Series(dtype = "str"),
-                      "Variable_type" : pd.Series(dtype = "str"),
-                      "Normality" : pd.Series(dtype = "str"),
-                      "Homocedasticity" : pd.Series(dtype = "str")}
-
-        header = {}
-        header.update(startColumns)
-        header.update(groupColumns)
-        header.update(endColumns)
-
-        table = pd.DataFrame(header)
-
-        for column in self.dataframe:
-
-            if column not in self.excludedVariables + [self.classVariable]:
-
-                workDataframe = reduceDataframe(self.dataframe,
-                                                self.classVariable,
-                                                column)
-
-                template = dict([(key, [""]) for key in header])
-                template["Variable"] = [column]
+        #  Variable, variable_type
+        #  all, groups, ...
+        #  p_value, test, normality, homocedasticity
 
 
-                #  Numerical section
-                if  not isCategorical(self.dataframe, column):
+        self.__database.filter(self.__dependentVariable,
+                               "variable is None")
 
-                    template["Variable_type"] = ["numerical"]
+        groups = self.__getGroups()
+
+        dataframe = []
+        for variable in self.__database.iterConfiguration():
+
+            if not variable.type in ["integer", "float", "percentage", "ranking",
+                                     "nominal", "ordinal", "binomial", "boolean",
+                                     "multilabel"]: continue
+
+            if variable.name in self.__excludedVariables + [self.__dependentVariable]: continue
+
+            registers = self.__cleanDatabase(variable.name)
+
+            if not registers: continue
+
+            #  Numerical section
+            if variable.type in ["integer", "float", "percentage", "ranking"]:
+
+                dataframe.append(self.__runNumerical(groups = groups,
+                                                     registers = registers,
+                                                     variable = variable))
+
+            #  Nominal section
+            elif variable.type in ["nominal", "ordinal",
+                                   "binomial", "boolean",
+                                   "multilabel"]:
+
+                dataframe += self.__runCategorical(groups = groups,
+                                                   registers = registers,
+                                                   variable = variable)
+
+        groups = [f"{group} (n={len([register for register in self.__database.iterRegisters() if register[self.__dependentVariable] == group])})" for group in groups]
+
+        dataframe = pd.DataFrame(dataframe,
+                                 columns = ["variable", "type",
+                                            f"all (n={len(self.__database._registers)})"] + \
+                                           groups + \
+                                           [P_VALUE, "test", "normality", "homocedasticity"])
+
+        self.__database.restore()
+
+        return dataframe
 
 
-                    #  Testear la normalidad
-                    normalityResult = KolmogorovSmirnovTest(dataframe = workDataframe,
-                                                            classVariable = self.classVariable,
-                                                            targetVariable = column).run()
 
-                    template["Normality"] = ["Yes" if not normalityResult.significance else "No"]
+    #%%  PREPROCESSING METHODS__________________________________________________________________________________________
 
 
-                    #  Testar la homocedasticidad
-                    if not normalityResult.significance:
 
-                        homocedasticityResult = LeveneTest(dataframe = workDataframe,
-                                                           classVariable = self.classVariable,
-                                                           targetVariable = column).run()
+    def __getGroups(self) -> list:
 
-                    else:
-
-                        homocedasticityResult = BrownForsythTest(dataframe = workDataframe,
-                                                                 classVariable = self.classVariable,
-                                                                 targetVariable = column).run()
-
-                    template["Homocedasticity"] = ["Yes" if not homocedasticityResult.significance else "No"]
+        return sorted(list({register[self.__dependentVariable] \
+                            for register in self.__database.iterRegisters() \
+                            if not register[self.__dependentVariable] is None}))
 
 
-                    #  Testear la comparacion
-                    if not normalityResult.significance: #  Si es paramétrico
 
-                        if not homocedasticityResult.significance: #  Si las varianzas son iguales
+    def __cleanDatabase(self, variable: str) -> list:
 
-                            testResult = StudentTTest(dataframe = workDataframe,
-                                                      classVariable = self.classVariable,
-                                                      targetVariable = column).run()
+        return [register \
+                for register in self.__database.iterRegisters() \
+                if not register[variable] is None]
 
-                        else: #  Si las varianzas no son iguales
 
-                            testResult = WelchTest(dataframe = workDataframe,
-                                                   classVariable = self.classVariable,
-                                                   targetVariable = column).run()
 
-                    else: #  Si no es paramétrico
+    #%%  NUMERICAL SECTION::____________________________________________________________________________________________
 
-                        testResult = MannWhitneyUTest(dataframe = workDataframe,
-                                                      classVariable = self.classVariable,
-                                                      targetVariable = column).run()
 
-                    template["All"] = ["{:.2f} ({:.2f} - {:.2f})".format(np.median(workDataframe[column]),
-                                                                        np.percentile(workDataframe[column], 25),
-                                                                        np.percentile(workDataframe[column], 75))]
 
-                    for group in groups:
+    def __runNumerical(self,
+                       groups: list = [],
+                       registers: list = [],
+                       variable: str = "") -> list:
 
-                        aux = workDataframe[workDataframe[self.classVariable] == group]
+        return [variable.name, variable.type] + \
+               self.__runNumericalDescriptive(groups = groups,
+                                              registers = registers,
+                                              variable= variable) + \
+               self.__runNumericalTest(variable = variable)
 
-                        template[group] = ["{:.2f} ({:.2f} - {:.2f})".format(np.median(aux[column]),
-                                                                            np.percentile(aux[column], 25),
-                                                                            np.percentile(aux[column], 75))]
 
-                        template["P_value"] = ["{:.3f}".format(testResult.lowerPvalue)]
-                        template["Test"] = [testResult.test]
 
-                #  Categorical section
+    def __runNumericalDescriptive(self,
+                                  groups: list = [],
+                                  registers: list = [],
+                                  variable: str = "") -> list:
+
+        descriptive = []
+        for group in ["all"] + groups:
+
+            if group == "all": filter = groups
+            else: filter = [group]
+
+            values = [register[variable.name] \
+                      for register in registers \
+                      if register[self.__dependentVariable] in filter]
+
+            if not values:
+                descriptive.append("No data")
+
+            else:
+                descriptive.append("{:.3f} ({:.3f} - {:.3f})".format(np.percentile(values, 50),
+                                                                    np.percentile(values, 25),
+                                                                    np.percentile(values, 75)))
+
+        return descriptive
+
+
+
+    def __runNumericalTest(self,
+                           variable: str = ""):
+
+        #  Normality
+        normalityResults = KolmogorovSmirnovTest(database = self.__database,
+                                                 independentVariable = variable.name,
+                                                 dependentVariable = self.__dependentVariable).run()
+
+        #  Non normality and unknown variance
+        if min(normalityResults[element][P_VALUE] for element in normalityResults) < 0.05:
+            info = [False, ""]
+
+        else:
+
+            homocedasticityResult = LeveneTest(database = self.__database,
+                                               independentVariable = variable.name,
+                                               dependentVariable = self.__dependentVariable).run()
+
+            #  Normality and non homocedasticity
+            if min(normalityResults[element][P_VALUE] for element in homocedasticityResult) < 0.05: info = [True, False]
+
+            #  Normality and Homocedasticity
+            else: info = [True, True]
+
+        if info[0] == True and info[1] == True: Test = StudentTTest #  Normality and Homocedasticity
+        elif info[0] == True and info[1] == False: Test = WelchTest #  Normality and non homocedasticity
+        elif info[0] == False: Test = MannWhitneyUTest #  No normality and unknown variance
+
+        test = Test(database = self.__database,
+                    independentVariable = variable.name,
+                    dependentVariable = self.__dependentVariable)
+
+        testResult = test.run()
+
+        pValue = min(testResult[element][P_VALUE] for element in testResult)
+
+        return [round(pValue, 3), test.prettyName] + info
+
+
+
+    #%%  CATEGORICAL SECTION::__________________________________________________________________________________________
+
+
+
+    def __runCategorical(self,
+                         groups: list = [],
+                         registers: list = [],
+                         variable: str = "") -> list:
+
+        descriptive = self.__runCategoricalDescriptive(groups = groups,
+                                                       registers = registers,
+                                                       variable = variable)
+
+        test = self.__runCategoricalTest(variable = variable)
+
+        results = []
+
+        for key in descriptive:
+
+            try:
+                results.append(descriptive[key] + [round(test[key][P_VALUE], 3)] + ["Pearson Chi Square Test", "", ""])
+
+            except KeyError:
+                results.append(descriptive[key] + ["", "Pearson Chi Square Test", "", ""])
+
+        return results
+
+
+
+    def __runCategoricalDescriptive(self,
+                                    groups: list = [],
+                                    registers: list = [],
+                                    variable: str = "") -> dict:
+
+        dataframe = variable.variableToDataframe(registers)
+
+        descriptive = {"all": [variable.name, variable.type] + ([""] * (len(groups) + 1))}
+        for column in dataframe:
+
+            row = [f"--> {column}", "boolean"]
+            for group in ["all"] + groups:
+
+                if group == "all": filter = groups
+                else: filter = [group]
+
+                registerIndexes = [register.id for register in registers if register[self.__dependentVariable] in filter]
+                auxDataframe = dataframe[dataframe.index.isin(registerIndexes)]
+
+                if auxDataframe.empty:
+                    row.append("0 (0.0)")
                 else:
 
-                    template["Variable_type"] = ["categorical"]
+                    row.append("{} ({:.2f})".format(sum(auxDataframe[column]),
+                                                    sum(auxDataframe[column]) / len(auxDataframe[column]) * 100))
 
-                    testResult = PearsonChiSquareTest(dataframe = workDataframe,
-                                                      classVariable = self.classVariable,
-                                                      targetVariable = column).run()
+            descriptive[column] = row
 
-                    template["P_value"] = ["{:.3f}".format(testResult.lowerPvalue)]
-                    template["Test"] = [testResult.test]
+        return descriptive
 
-                    for tag in sorted(set(workDataframe[column])):
 
-                        auxDataframe = pd.get_dummies(workDataframe[column])
-                        auxDataframe = auxDataframe.join(workDataframe[self.classVariable])
 
-                        template["Variable"].append(f"----> {column}-{tag}")
-                        template["Variable_type"].append("categorical")
-                        template["Normality"].append("")
-                        template["Homocedasticity"].append("")
+    def __runCategoricalTest(self,
+                             variable: str = "") -> dict:
 
-                        try:
-                            template["All"].append("{} ({:.1f})".format(np.sum(auxDataframe[tag]),
-                                                                        np.sum(auxDataframe[tag]) /\
-                                                                        len(auxDataframe[tag]) * 100))
+        testResult = PearsonChiSquareTest(database = self.__database,
+                                          independentVariable = variable.name,
+                                          dependentVariable = self.__dependentVariable).run()
 
-                        except ZeroDivisionError: template["All"].append("{} ({:.1f})".format(0, 0))
-
-                        for group in groups:
-
-                            try:
-                                template[group].append("{} ({:.2f})".format(np.sum(auxDataframe[auxDataframe[self.classVariable] == group][tag]),
-                                                                            np.sum(auxDataframe[auxDataframe[self.classVariable] == group][tag]) /\
-                                                                            len(auxDataframe[auxDataframe[self.classVariable] == group][tag]) * 100))
-
-                            except ZeroDivisionError: template[group].append("{} ({:.1f})".format(0, 0))
-
-                        auxDataframe = auxDataframe.replace(1, "yes").replace(0, "no")
-
-                        testResult = PearsonChiSquareTest(dataframe = auxDataframe,
-                                                          classVariable = self.classVariable,
-                                                          targetVariable = tag).run()
-
-                        template["P_value"].append("{:.3f}".format(testResult.lowerPvalue))
-                        template["Test"].append(testResult.test)
-
-                table = pd.concat([table,
-                                   pd.DataFrame(template)])
-
-        return table
+        return testResult
