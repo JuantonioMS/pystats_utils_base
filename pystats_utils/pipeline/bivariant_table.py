@@ -34,13 +34,13 @@ class BivariantTable:
         #  p_value, test, normality, homocedasticity
 
 
-        self.__database.filter(self.__dependentVariable,
-                               "variable is None")
+        database = self.__database.drop(self.__dependentVariable,
+                                        "variable is None")
 
         groups = self.__getGroups()
 
         dataframe = []
-        for variable in self.__database.iterConfiguration():
+        for variable in database.iterConfiguration():
 
             if not variable.type in ["integer", "float", "percentage", "ranking",
                                      "nominal", "ordinal", "binomial", "boolean",
@@ -68,15 +68,13 @@ class BivariantTable:
                                                    registers = registers,
                                                    variable = variable)
 
-        groups = [f"{group} (n={len([register for register in self.__database.iterRegisters() if register[self.__dependentVariable] == group])})" for group in groups]
+        groups = [f"{group} (n={len([register for register in database.iterRegisters() if register[self.__dependentVariable] == group])})" for group in groups]
 
         dataframe = pd.DataFrame(dataframe,
                                  columns = ["variable", "type",
-                                            f"all (n={len(self.__database._registers)})"] + \
+                                            f"all (n={len(database._registers)})"] + \
                                            groups + \
                                            [P_VALUE, "test", "normality", "homocedasticity"])
-
-        self.__database.restore()
 
         return dataframe
 
